@@ -5,7 +5,14 @@
  * @format
  */
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TextInput, Button, Alert } from 'react-native';
+import {
+  StyleSheet,
+  View,
+  Text,
+  TextInput,
+  Alert,
+  TouchableOpacity,
+} from 'react-native';
 
 import NativeAccessibility from './NativeAccessibility/NativeAccessibility';
 
@@ -60,7 +67,13 @@ function App() {
         onChangeText={setInputText}
         value={inputText}
       />
-      <Button title="开始执行" onPress={handleSendTextToNative} />
+      <TouchableOpacity
+        style={styles.button}
+        onPress={handleSendTextToNative}
+        testID="start_execution_button" //  <-- 在这里设置 nativeID
+      >
+        <Text style={styles.buttonText}>开始执行</Text>
+      </TouchableOpacity>
     </View>
   );
 }
@@ -93,6 +106,19 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     marginBottom: 10,
     paddingHorizontal: 10,
+  },
+  button: {
+    backgroundColor: '#007AFF',
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
 });
 
