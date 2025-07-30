@@ -1,7 +1,12 @@
 package com.tomato.nativeaccessibility;
 
 import android.accessibilityservice.AccessibilityService;
+import android.accessibilityservice.GestureDescription;
 import android.content.Intent;
+import android.graphics.Path;
+import android.graphics.Rect;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
@@ -11,20 +16,28 @@ import java.util.List;
 /**
  * 核心的无障碍服务类。
  * 当用户授权后，此服务会在后台运行，监听指定应用的界面变化。
+ *
+ * [已修改]
  */
 public class AccessibilityEventService extends AccessibilityService {
     // 定义一个日志标签，方便我们过滤日志
     private static final String TAG = "MyAccessibilityService";
     // 点击小说首页顶部输入框左侧的搜索按钮进入搜索界面
-    private static final String TARGET_FOR_INPUT_BUTTON = "com.dragon.read:id/c8";
+    private static final String TARGET_FOR_INPUT_BUTTON = "com.xingin.xhs:id/0_resource_name_obfuscated";
     // 定义你想要监听的目标 App 的包名
-    private static final String TARGET_PACKAGE_NAME = "com.dragon.read";
+    private static final String TARGET_PACKAGE_NAME = "com.xingin.xhs";
 
     // 状态标志位：防止在同一个界面上重复点击
     private boolean hasClickedOnThisScreen = false;
+
+    private static final int MAX_RETRY_ATTEMPTS = 20; // 最多重试20次
+    private static final long RETRY_DELAY_MS = 1000; // 每次重试间隔1秒
+
+    // 使用 Handler 来处理延迟操作，避免阻塞主线程
+    private final Handler mHandler = new Handler(Looper.getMainLooper());
+
     /**
      * 当服务成功连接时被调用。
-     * 可以在这里进行一些初始化操作。
      */
     @Override
     protected void onServiceConnected() {
@@ -33,135 +46,171 @@ public class AccessibilityEventService extends AccessibilityService {
 
     /**
      * 当系统检测到符合我们配置的无障碍事件时，此方法会被调用。
-     * 这是处理所有事件的核心入口。
-     *
-     * @param event 包含事件信息的对象
      */
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        if (event == null) {
+        Log.d(TAG, "I am here;;;;");
+        if (event == null || event.getPackageName() == null) {
             return;
         }
 
-        // 获取事件来源的 App 包名
-        CharSequence packageName = event.getPackageName();
-        if (packageName == null || !(TARGET_PACKAGE_NAME.equals(packageName.toString()))) {
-            // 如果用户切换到了其他应用，重置点击标志位
+        // 如果事件不是来自目标应用
+        if (!TARGET_PACKAGE_NAME.equals(event.getPackageName().toString())) {
+            // 如果用户之前在目标应用内，现在离开了，就重置状态
             if (hasClickedOnThisScreen) {
-                Log.d(TAG, "用户离开目标应用，重置点击状态。");
+                Log.d(TAG, "用户离开目标应用，重置所有状态。");
                 hasClickedOnThisScreen = false;
+                // 当离开目标应用时，取消所有待处理的重试任务
+                mHandler.removeCallbacksAndMessages(null);
             }
             return;
         }
 
         int eventType = event.getEventType();
 
-        Log.d(TAG, "检测到事件");
-        // 主要触发器：窗口状态改变（进入新页面）
-        // 备用触发器：窗口内容改变（页面内UI刷新）
-        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-                eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-            // 如果已经在这个页面点击过了，就直接返回，不再处理
-            if (hasClickedOnThisScreen) {
-                return;
-            }
+        // 主要监听窗口变化事件，这是进入新界面的最可靠信号
+        if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            Log.d(TAG, "检测到窗口状态变化事件。");
+            // 每次进入新界面时，都重置点击标志
+            hasClickedOnThisScreen = false;
+            mHandler.removeCallbacksAndMessages(null); // 取消上个界面可能遗留的重试任务
+
             AccessibilityNodeInfo rootNode = getRootInActiveWindow();
-            if (rootNode == null) {
-                return;
+            if (rootNode != null) {
+                findAndClickNode(rootNode, 0); // 启动查找和点击，初始尝试次数为0
+                rootNode.recycle();
             }
-
-            // 尝试查找并点击按钮
-            findAndClickReadyButton(rootNode);
-
-            // AccessibilityNodeInfo 并非一个普通的Java对象。它只是一个“外壳”，内部关联着系统底层（通常是C++实现）的大量数据和资源。
-            // 用完之后需要回收
-            rootNode.recycle();
         }
-        // 如果不是来自目标 App 的事件，就直接忽略
     }
 
     /**
-     * 当服务被系统中断时调用（例如，权限被关闭或系统需要回收资源）。
-     */
-    @Override
-    public void onInterrupt() {
-        Log.w(TAG, "无障碍服务被中断。");
-    }
-
-    /**
-     * 当服务被解除绑定时调用。
-     * @param intent The Intent that was used to bind to this service.
-     * @return true if you would like to have the service's onRebind(Intent) method
-     *         later called when new clients bind to it.
-     */
-    @Override
-    public boolean onUnbind(Intent intent) {
-        Log.i(TAG, "无障碍服务已解绑。");
-        return super.onUnbind(intent);
-    }
-
-    /** ----------------------------------自定义函数--------------------------------*/
-    /**
-     * 查找并点击处于“就绪”状态的按钮
+     * 递归地查找并点击节点，增加了重试机制。
      * @param rootNode 根节点
+     * @param attempt 当前尝试次数
      */
-    private void findAndClickReadyButton(AccessibilityNodeInfo rootNode) {
-        try {
-            Thread.sleep(10000); // 等待1秒
-        } catch (InterruptedException e) {
-            Log.w(TAG, "等待10s被打断", e);
-            Thread.currentThread().interrupt(); // 重新设置中断状态
-            return; // 线程中断，直接退出方法
+    private void findAndClickNode(AccessibilityNodeInfo rootNode, int attempt) {
+        // 如果在本界面已经成功点击过，或者根节点为空，则停止后续所有操作
+        if (hasClickedOnThisScreen || rootNode == null) {
+            return;
         }
+
+        if (attempt >= MAX_RETRY_ATTEMPTS) {
+            Log.w(TAG, "超过最大重试次数，未能找到并点击目标节点。");
+            return;
+        }
+
         List<AccessibilityNodeInfo> nodes = rootNode.findAccessibilityNodeInfosByViewId(TARGET_FOR_INPUT_BUTTON);
 
         if (nodes != null && !nodes.isEmpty()) {
-            for (AccessibilityNodeInfo node : nodes) {
-                Log.d(TAG, "找到目标节点：" + node.toString());
-                if (node == null) {
-                    continue; // 跳过 null 节点
-                }
-                boolean clicked = false;
+            AccessibilityNodeInfo targetNode = nodes.get(0); // ID通常是唯一的
 
-                for (int attempt = 0; attempt < 20; attempt++) { // 最多尝试20次，即等待20秒
-                    // 核心检查：确保按钮可见、可用且可点击
-                    if (node.isVisibleToUser() && node.isEnabled()) {
-                        Log.d(TAG, "按钮已就绪 (尝试 " + (attempt + 1) + " 次)，执行点击！");
-                        node.performAction(AccessibilityNodeInfo.ACTION_CLICK);
-                        Log.d(TAG, "已经执行到这里");
-                        // 关键一步：设置标志位，表示我们已经成功点击
-                        hasClickedOnThisScreen = true;
-                        clicked = true;
-                        break; // 点击成功，跳出重试循环
+            if (targetNode != null && targetNode.isVisibleToUser() && targetNode.isEnabled()) {
+                Log.d(TAG, "节点已就绪 (尝试 " + (attempt + 1) + " 次)，准备执行点击。");
+
+                // 设置标志位，防止重复点击。即使点击失败，也只在本界面尝试一次完整的流程。
+                hasClickedOnThisScreen = true;
+
+                boolean clickSuccess = false;
+
+                // [关键修改] 1. 优先使用 performAction(ACTION_CLICK)
+                // 这是最稳定、最推荐的点击方式，直接触发控件的点击事件。
+                if (targetNode.isClickable()) {
+                    Log.i(TAG, "节点可点击，尝试执行 performAction(ACTION_CLICK)。");
+                    clickSuccess = targetNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+                    if (clickSuccess) {
+                        Log.i(TAG, "performAction(ACTION_CLICK) 成功！");
                     } else {
-                        Log.d(TAG, "按钮未就绪 (尝试 " + (attempt + 1) + " 次)。可见: " + node.isVisibleToUser() + ", 可用: " + node.isEnabled());
-                        if (attempt < 19) { // 如果不是最后一次尝试，则等待
-                            try {
-                                Thread.sleep(1000); // 等待1秒
-                            } catch (InterruptedException e) {
-                                Log.w(TAG, "等待被打断", e);
-                                Thread.currentThread().interrupt(); // 重新设置中断状态
-                                node.recycle(); // 发生异常时也回收节点
-                                return; // 线程中断，直接退出方法
-                            }
-                        }
+                        Log.w(TAG, "performAction(ACTION_CLICK) 返回 false，操作失败。");
                     }
                 }
 
-                if (node != null) {
-                    node.recycle();
+                // [关键修改] 2. 如果 performAction 失败或节点不可点击，回退到手势模拟
+                if (!clickSuccess) {
+                    Log.w(TAG, "performAction 失败或节点不可点击，回退到手势模拟。");
+                    Rect bounds = new Rect();
+                    targetNode.getBoundsInScreen(bounds);
+
+                    if (bounds.width() > 0 && bounds.height() > 0) {
+                        clickOnNodeByGesture(bounds.centerX(), bounds.centerY());
+                    } else {
+                        Log.e(TAG, "节点坐标无效，无法通过手势点击。Bounds: " + bounds);
+                        hasClickedOnThisScreen = false; // 点击彻底失败，重置标志位允许重试
+                    }
                 }
 
-                if (clicked) {
-                    Log.d(TAG, "成功点击按钮并退出查找。");
-                    return; // 成功点击后就可以退出了，避免操作其他同ID的节点
-                } else {
-                    Log.d(TAG, "等待20秒后，按钮仍然未就绪或未找到。");
-                    return; // 结束当前按钮的处理
-                }
+            } else {
+                // 节点未就绪，安排下一次重试
+                Log.d(TAG, "节点未就绪 (尝试 " + (attempt + 1) + " 次)，将在 " + RETRY_DELAY_MS + "ms 后重试。");
+                scheduleNextAttempt(attempt + 1);
+            }
+            // 回收所有找到的节点
+            for (AccessibilityNodeInfo node : nodes) {
+                if (node != null) node.recycle();
             }
         } else {
-            Log.d(TAG, "根据提供的resource id未找到节点");
+            // 未找到节点，安排下一次重试
+            Log.d(TAG, "根据ID未找到节点 (尝试 " + (attempt + 1) + " 次)，将在 " + RETRY_DELAY_MS + "ms 后重试。");
+            scheduleNextAttempt(attempt + 1);
         }
+    }
+
+    /**
+     * 安排下一次查找和点击的尝试
+     * @param nextAttempt 下一次尝试的次数
+     */
+    private void scheduleNextAttempt(int nextAttempt) {
+        mHandler.postDelayed(() -> {
+            AccessibilityNodeInfo newRootNode = getRootInActiveWindow(); // 每次重试都重新获取最新的根节点
+            findAndClickNode(newRootNode, nextAttempt);
+            if (newRootNode != null) {
+                newRootNode.recycle();
+            }
+        }, RETRY_DELAY_MS);
+    }
+
+    /**
+     * [修改] 在指定屏幕坐标执行模拟手势点击（作为备用方案）
+     * @param x X坐标
+     * @param y Y坐标
+     */
+    private void clickOnNodeByGesture(int x, int y) {
+        Log.i(TAG, "正在坐标 (" + x + ", " + y + ") 执行手势点击。");
+        Path path = new Path();
+        path.moveTo(x, y);
+
+        GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
+        // [修改] 将点击持续时间从100ms缩短到20ms，更像一次真实的快速点击
+        GestureDescription.StrokeDescription stroke = new GestureDescription.StrokeDescription(path, 0, 20);
+        gestureBuilder.addStroke(stroke);
+
+        dispatchGesture(gestureBuilder.build(), new GestureResultCallback() {
+            @Override
+            public void onCompleted(GestureDescription gestureDescription) {
+                super.onCompleted(gestureDescription);
+                Log.i(TAG, "手势点击完成。");
+                // 成功后无需任何操作，hasClickedOnThisScreen 已经是 true
+            }
+
+            @Override
+            public void onCancelled(GestureDescription gestureDescription) {
+                super.onCancelled(gestureDescription);
+                Log.w(TAG, "手势点击被取消。");
+                // 如果手势被取消，说明点击没有成功，重置标志位以允许服务再次尝试
+                hasClickedOnThisScreen = false;
+            }
+        }, null);
+    }
+
+    @Override
+    public void onInterrupt() {
+        Log.w(TAG, "无障碍服务被中断。");
+        mHandler.removeCallbacksAndMessages(null);
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Log.i(TAG, "无障碍服务已解绑。");
+        mHandler.removeCallbacksAndMessages(null);
+        return super.onUnbind(intent);
     }
 }
