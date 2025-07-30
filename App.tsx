@@ -5,21 +5,13 @@
  * @format
  */
 import React, { useState, useEffect } from 'react';
-import { NewAppScreen } from '@react-native/new-app-screen';
-import {
-  StatusBar,
-  StyleSheet,
-  useColorScheme,
-  View,
-  SafeAreaView,
-  Text,
-} from 'react-native';
+import { StyleSheet, View, Text, TextInput, Button, Alert } from 'react-native';
 
 import NativeAccessibility from './NativeAccessibility/NativeAccessibility';
 
 function App() {
-  const isDarkMode = useColorScheme() === 'dark';
   const [moduleName, setModuleName] = useState<string>('');
+  const [inputText, setInputText] = useState<string>('');
 
   useEffect(() => {
     try {
@@ -30,6 +22,19 @@ function App() {
       setModuleName('获取模块名失败');
     }
   }, []);
+
+  const handleSendTextToNative = () => {
+    if (!inputText.trim()) {
+      Alert.alert('提示', '请输入内容后再发送');
+      return;
+    }
+    try {
+      // 调用原生模块的新方法，并传递输入框的文本
+      NativeAccessibility.performSearch(inputText);
+    } catch (e) {
+      console.error('调用 performSearch 失败', e);
+    }
+  };
 
   // 检查模块是否成功加载
   if (!NativeAccessibility) {
@@ -47,7 +52,15 @@ function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.moduleName}>{moduleName}</Text>
+      <Text style={styles.title}>原生模块状态</Text>
+      <Text style={styles.moduleName}>模块名: {moduleName}</Text>
+      <TextInput
+        style={styles.input}
+        placeholder="请输入要搜索的内容..."
+        onChangeText={setInputText}
+        value={inputText}
+      />
+      <Button title="开始执行" onPress={handleSendTextToNative} />
     </View>
   );
 }
@@ -55,6 +68,7 @@ function App() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    padding: 20,
   },
   errorText: {
     padding: 20,
@@ -62,10 +76,23 @@ const styles = StyleSheet.create({
     color: 'red',
     textAlign: 'center',
   },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 10,
+  },
   moduleName: {
     fontSize: 14,
     fontStyle: 'italic',
     color: '#555',
+    marginBottom: 20,
+  },
+  input: {
+    height: 40,
+    borderColor: 'gray',
+    borderWidth: 1,
+    marginBottom: 10,
+    paddingHorizontal: 10,
   },
 });
 
