@@ -66,6 +66,7 @@ public class AccessibilityEventService extends AccessibilityService {
             hasClickedOnThisScreen = false;
             mHandler.removeCallbacksAndMessages(null); // 取消上个界面可能遗留的重试任务
 
+            // TODO: 窗口滑动的瞬间可能监听不到rootNode
             AccessibilityNodeInfo rootNode = getRootInActiveWindow();
             if (rootNode != null) {
                 findAndClickNode(rootNode, 0); // 启动查找和点击，初始尝试次数为0
