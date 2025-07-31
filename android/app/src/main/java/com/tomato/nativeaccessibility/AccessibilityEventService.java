@@ -20,18 +20,9 @@ import java.util.List;
  * [已修改]
  */
 public class AccessibilityEventService extends AccessibilityService {
-    // 定义一个日志标签，方便我们过滤日志
-    private static final String TAG = "MyAccessibilityService";
-    // 点击小说首页顶部输入框左侧的搜索按钮进入搜索界面
-    private static final String TARGET_FOR_INPUT_BUTTON = "com.xingin.xhs:id/0_resource_name_obfuscated";
-    // 定义你想要监听的目标 App 的包名
-    private static final String TARGET_PACKAGE_NAME = "com.xingin.xhs";
 
     // 状态标志位：防止在同一个界面上重复点击
     private boolean hasClickedOnThisScreen = false;
-
-    private static final int MAX_RETRY_ATTEMPTS = 20; // 最多重试20次
-    private static final long RETRY_DELAY_MS = 1000; // 每次重试间隔1秒
 
     // 使用 Handler 来处理延迟操作，避免阻塞主线程
     private final Handler mHandler = new Handler(Looper.getMainLooper());
@@ -41,7 +32,7 @@ public class AccessibilityEventService extends AccessibilityService {
      */
     @Override
     protected void onServiceConnected() {
-        Log.i(TAG, "无障碍服务已连接。");
+        Log.i(AccessibilityConfig.TAG, "无障碍服务已连接。");
     }
 
     /**
@@ -49,16 +40,16 @@ public class AccessibilityEventService extends AccessibilityService {
      */
     @Override
     public void onAccessibilityEvent(AccessibilityEvent event) {
-        Log.d(TAG, "I am here;;;;");
+        Log.d(AccessibilityConfig.TAG, "I am here;;;;");
         if (event == null || event.getPackageName() == null) {
             return;
         }
 
         // 如果事件不是来自目标应用
-        if (!TARGET_PACKAGE_NAME.equals(event.getPackageName().toString())) {
+        if (!AccessibilityConfig.TARGET_PACKAGE_NAME.equals(event.getPackageName().toString())) {
             // 如果用户之前在目标应用内，现在离开了，就重置状态
             if (hasClickedOnThisScreen) {
-                Log.d(TAG, "用户离开目标应用，重置所有状态。");
+                Log.d(AccessibilityConfig.TAG, "用户离开目标应用，重置所有状态。");
                 hasClickedOnThisScreen = false;
                 // 当离开目标应用时，取消所有待处理的重试任务
                 mHandler.removeCallbacksAndMessages(null);
@@ -70,7 +61,7 @@ public class AccessibilityEventService extends AccessibilityService {
 
         // 主要监听窗口变化事件，这是进入新界面的最可靠信号
         if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            Log.d(TAG, "检测到窗口状态变化事件。");
+            Log.d(AccessibilityConfig.TAG, "检测到窗口状态变化事件。");
             // 每次进入新界面时，都重置点击标志
             hasClickedOnThisScreen = false;
             mHandler.removeCallbacksAndMessages(null); // 取消上个界面可能遗留的重试任务
@@ -94,18 +85,18 @@ public class AccessibilityEventService extends AccessibilityService {
             return;
         }
 
-        if (attempt >= MAX_RETRY_ATTEMPTS) {
-            Log.w(TAG, "超过最大重试次数，未能找到并点击目标节点。");
+        if (attempt >= AccessibilityConfig.MAX_RETRY_ATTEMPTS) {
+            Log.w(AccessibilityConfig.TAG, "超过最大重试次数，未能找到并点击目标节点。");
             return;
         }
 
-        List<AccessibilityNodeInfo> nodes = rootNode.findAccessibilityNodeInfosByViewId(TARGET_FOR_INPUT_BUTTON);
+        List<AccessibilityNodeInfo> nodes = rootNode.findAccessibilityNodeInfosByViewId(AccessibilityConfig.TARGET_FOR_INPUT_BUTTON);
 
         if (nodes != null && !nodes.isEmpty()) {
             AccessibilityNodeInfo targetNode = nodes.get(0); // ID通常是唯一的
 
             if (targetNode != null && targetNode.isVisibleToUser() && targetNode.isEnabled()) {
-                Log.d(TAG, "节点已就绪 (尝试 " + (attempt + 1) + " 次)，准备执行点击。");
+                Log.d(AccessibilityConfig.TAG, "节点已就绪 (尝试 " + (attempt + 1) + " 次)，准备执行点击。");
 
                 // 设置标志位，防止重复点击。即使点击失败，也只在本界面尝试一次完整的流程。
                 hasClickedOnThisScreen = true;
@@ -115,32 +106,32 @@ public class AccessibilityEventService extends AccessibilityService {
                 // [关键修改] 1. 优先使用 performAction(ACTION_CLICK)
                 // 这是最稳定、最推荐的点击方式，直接触发控件的点击事件。
                 if (targetNode.isClickable()) {
-                    Log.i(TAG, "节点可点击，尝试执行 performAction(ACTION_CLICK)。");
+                    Log.i(AccessibilityConfig.TAG, "节点可点击，尝试执行 performAction(ACTION_CLICK)。");
                     clickSuccess = targetNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
                     if (clickSuccess) {
-                        Log.i(TAG, "performAction(ACTION_CLICK) 成功！");
+                        Log.i(AccessibilityConfig.TAG, "performAction(ACTION_CLICK) 成功！");
                     } else {
-                        Log.w(TAG, "performAction(ACTION_CLICK) 返回 false，操作失败。");
+                        Log.w(AccessibilityConfig.TAG, "performAction(ACTION_CLICK) 返回 false，操作失败。");
                     }
                 }
 
                 // [关键修改] 2. 如果 performAction 失败或节点不可点击，回退到手势模拟
                 if (!clickSuccess) {
-                    Log.w(TAG, "performAction 失败或节点不可点击，回退到手势模拟。");
+                    Log.w(AccessibilityConfig.TAG, "performAction 失败或节点不可点击，回退到手势模拟。");
                     Rect bounds = new Rect();
                     targetNode.getBoundsInScreen(bounds);
 
                     if (bounds.width() > 0 && bounds.height() > 0) {
                         clickOnNodeByGesture(bounds.centerX(), bounds.centerY());
                     } else {
-                        Log.e(TAG, "节点坐标无效，无法通过手势点击。Bounds: " + bounds);
+                        Log.e(AccessibilityConfig.TAG, "节点坐标无效，无法通过手势点击。Bounds: " + bounds);
                         hasClickedOnThisScreen = false; // 点击彻底失败，重置标志位允许重试
                     }
                 }
 
             } else {
                 // 节点未就绪，安排下一次重试
-                Log.d(TAG, "节点未就绪 (尝试 " + (attempt + 1) + " 次)，将在 " + RETRY_DELAY_MS + "ms 后重试。");
+                Log.d(AccessibilityConfig.TAG, "节点未就绪 (尝试 " + (attempt + 1) + " 次)，将在 " + AccessibilityConfig.RETRY_DELAY_MS + "ms 后重试。");
                 scheduleNextAttempt(attempt + 1);
             }
             // 回收所有找到的节点
@@ -149,7 +140,7 @@ public class AccessibilityEventService extends AccessibilityService {
             }
         } else {
             // 未找到节点，安排下一次重试
-            Log.d(TAG, "根据ID未找到节点 (尝试 " + (attempt + 1) + " 次)，将在 " + RETRY_DELAY_MS + "ms 后重试。");
+            Log.d(AccessibilityConfig.TAG, "根据ID未找到节点 (尝试 " + (attempt + 1) + " 次)，将在 " + AccessibilityConfig.RETRY_DELAY_MS + "ms 后重试。");
             scheduleNextAttempt(attempt + 1);
         }
     }
@@ -165,7 +156,7 @@ public class AccessibilityEventService extends AccessibilityService {
             if (newRootNode != null) {
                 newRootNode.recycle();
             }
-        }, RETRY_DELAY_MS);
+        }, AccessibilityConfig.RETRY_DELAY_MS);
     }
 
     /**
@@ -174,7 +165,7 @@ public class AccessibilityEventService extends AccessibilityService {
      * @param y Y坐标
      */
     private void clickOnNodeByGesture(int x, int y) {
-        Log.i(TAG, "正在坐标 (" + x + ", " + y + ") 执行手势点击。");
+        Log.i(AccessibilityConfig.TAG, "正在坐标 (" + x + ", " + y + ") 执行手势点击。");
         Path path = new Path();
         path.moveTo(x, y);
 
@@ -187,14 +178,14 @@ public class AccessibilityEventService extends AccessibilityService {
             @Override
             public void onCompleted(GestureDescription gestureDescription) {
                 super.onCompleted(gestureDescription);
-                Log.i(TAG, "手势点击完成。");
+                Log.i(AccessibilityConfig.TAG, "手势点击完成。");
                 // 成功后无需任何操作，hasClickedOnThisScreen 已经是 true
             }
 
             @Override
             public void onCancelled(GestureDescription gestureDescription) {
                 super.onCancelled(gestureDescription);
-                Log.w(TAG, "手势点击被取消。");
+                Log.w(AccessibilityConfig.TAG, "手势点击被取消。");
                 // 如果手势被取消，说明点击没有成功，重置标志位以允许服务再次尝试
                 hasClickedOnThisScreen = false;
             }
@@ -203,13 +194,13 @@ public class AccessibilityEventService extends AccessibilityService {
 
     @Override
     public void onInterrupt() {
-        Log.w(TAG, "无障碍服务被中断。");
+        Log.w(AccessibilityConfig.TAG, "无障碍服务被中断。");
         mHandler.removeCallbacksAndMessages(null);
     }
 
     @Override
     public boolean onUnbind(Intent intent) {
-        Log.i(TAG, "无障碍服务已解绑。");
+        Log.i(AccessibilityConfig.TAG, "无障碍服务已解绑。");
         mHandler.removeCallbacksAndMessages(null);
         return super.onUnbind(intent);
     }
