@@ -13,15 +13,23 @@ import java.util.List;
 
 public class MainPageProcessor implements ScreenProcessor {
     @Override
-    public boolean canProcess(AccessibilityNodeInfo rootNode) {
+    public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
+
+        // 1. 检查此操作是否已完成
+        if (service.getStateManager().isActionCompleted(AccessibilityConfig.ACTION_ID_CLICK_MAIN_PAGE_SEARCH)) {
+            return false;
+        }
+
+        // 2. 检查界面特征：必须是首页（有分类按钮），且有搜索入口
         // TARGET_FOR_INPUT_BUTTON_1 在其他页面也有出现，所以这里要判断只有在首页才会返回为true
         List<AccessibilityNodeInfo> targetNodes1 = null;
         List<AccessibilityNodeInfo> targetNodes2 = null;
 
         try {
-            // TARGET_FOR_INPUT_BUTTON_1 在其他页面也有出现，所以这里要判断只有在首页才会返回为true
+            // 检查是否有首页特征按钮（如“分类”）
             targetNodes1 = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_5);
             if (!(targetNodes1.isEmpty())) {
+                // 检查是否有搜索入口按钮
                 targetNodes2 = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_1);
                 return !(targetNodes2.isEmpty());
             } else {
@@ -69,7 +77,8 @@ public class MainPageProcessor implements ScreenProcessor {
             boolean clickInitiated = AccessibilityActionUtils.performClick(service, targetNode);
             if (clickInitiated) {
                 Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。设置 hasClickedOnThisScreen = true。");
-                service.markActionAsCompleted();
+                // 使用状态管理器标记操作完成
+                service.getStateManager().markActionAsCompleted(AccessibilityConfig.ACTION_ID_CLICK_MAIN_PAGE_SEARCH);
                 return true;
             } else {
                 Log.w(AccessibilityConfig.TAG, "点击操作发起失败 (可能节点在点击前变为不可见/不可用)。");

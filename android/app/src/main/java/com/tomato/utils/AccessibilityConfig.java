@@ -24,7 +24,7 @@ public final class AccessibilityConfig {
     /**
      * 小说首页顶部输入框左侧搜索按钮的资源ID。
      */
-    public static final String TARGET_FOR_INPUT_BUTTON_1 = "com.dragon.read:id/c9";
+    public static final String TARGET_FOR_INPUT_BUTTON_1 = "com.dragon.read:id/c8";
 
     /**
      * 提示用户是否要将某个界面添加到主屏的顶部title的资源ID。
@@ -39,22 +39,17 @@ public final class AccessibilityConfig {
     /**
      * 番茄小说搜索界面的输入框。
      */
-    public static final String TARGET_FOR_INPUT_BUTTON_4 = "com.dragon.read:id/gdb";
+    public static final String TARGET_FOR_INPUT_BUTTON_4 = "com.dragon.read:id/gfy";
 
     /**
      * 番茄小说首页界面的分类按钮。用以判断当前界面是否是首页。
      */
-    public static final String TARGET_FOR_INPUT_BUTTON_5 = "com.dragon.read:id/hfd";
+    public static final String TARGET_FOR_INPUT_BUTTON_5 = "com.dragon.read:id/hia";
 
     /**
      * 搜索页面的搜索按钮对应的resource id。
      */
-    public static final String TARGET_FOR_INPUT_BUTTON_6 = "com.dragon.read:id/gef";
-
-    /**
-     * 根据是否有筛选框判断搜索是否已经被点击过
-     */
-    public static final String TARGET_FOR_INPUT_BUTTON_7 = "com.dragon.read:id/lw";
+    public static final String TARGET_FOR_INPUT_BUTTON_6 = "com.dragon.read:id/gh2";
 
     // --- Logging ---
     /**
@@ -78,5 +73,12 @@ public final class AccessibilityConfig {
      * 模拟手势点击的持续时间（毫秒）。
      */
     public static final long GESTURE_CLICK_DURATION_MS = 20;
+
+
+    // --- Action Identifiers for State Management ---
+    public static final String ACTION_ID_CLICK_MAIN_PAGE_SEARCH = "action_click_main_page_search";
+    public static final String ACTION_ID_INPUT_NOVEL_NAME = "action_input_novel_name";
+    public static final String ACTION_ID_CLICK_SEARCH_BUTTON = "action_click_search_button";
+    public static final String ACTION_ID_DISMISS_ADD_TO_HOME_DIALOG = "action_dismiss_add_to_home_dialog";
 }
 

@@ -18,7 +18,12 @@ public class AddToHomePageProcessor implements ScreenProcessor {
      * @return 是否可以处理当前屏幕。
      */
     @Override
-    public boolean canProcess(AccessibilityNodeInfo rootNode) {
+    public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
+        // 1. 检查此操作是否已完成
+        if (service.getStateManager().isActionCompleted(AccessibilityConfig.ACTION_ID_DISMISS_ADD_TO_HOME_DIALOG)) {
+            return false;
+        }
+
         List<AccessibilityNodeInfo> targetNodes = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_2);
         // 如果没有找到输入框，直接返回false
         if (targetNodes.isEmpty()) {
@@ -56,7 +61,8 @@ public class AddToHomePageProcessor implements ScreenProcessor {
             boolean clickInitiated = AccessibilityActionUtils.performClick(service, targetNode);
             if (clickInitiated) {
                 Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。设置 hasClickedOnThisScreen = true。");
-                service.markActionAsCompleted();
+                // 使用状态管理器标记操作完成
+                service.getStateManager().markActionAsCompleted(AccessibilityConfig.ACTION_ID_DISMISS_ADD_TO_HOME_DIALOG);
                 return true;
             } else {
                 Log.w(AccessibilityConfig.TAG, "点击操作发起失败 (可能节点在点击前变为不可见/不可用)。");

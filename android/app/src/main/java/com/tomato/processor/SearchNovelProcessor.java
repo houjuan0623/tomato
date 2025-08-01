@@ -13,29 +13,27 @@ import java.util.List;
 
 public class SearchNovelProcessor implements ScreenProcessor {
     @Override
-    public boolean canProcess(AccessibilityNodeInfo rootNode) {
+    public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
         if (rootNode == null) {
             return false;
         }
 
-        // 1. 查找搜索按钮
-        List<AccessibilityNodeInfo> searchButtons = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_6);
-        boolean hasSearchButton = !searchButtons.isEmpty();
-
-        // 2. 查找输入框，并检查其是否有文本
-        List<AccessibilityNodeInfo> inputFields = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_4);
-        boolean hasInputFieldWithText = false;
-
-        // 如果有筛选框，说明当前的界面是已经点击了搜索按钮的界面，就不要再点击了
-        List<AccessibilityNodeInfo> filterNodes = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_7);
-
-        if (!filterNodes.isEmpty()) {
+        // 1. 检查此操作是否已完成
+        if (service.getStateManager().isActionCompleted(AccessibilityConfig.ACTION_ID_CLICK_SEARCH_BUTTON)) {
             return false;
         }
 
+        // 2. 检查界面特征：必须同时存在搜索按钮和有文本的输入框
+        List<AccessibilityNodeInfo> searchButtons = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_6);
+        boolean hasSearchButton = !searchButtons.isEmpty();
+
+        List<AccessibilityNodeInfo> inputFields = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_4);
+        boolean hasInputFieldWithText = false;
+
         if (!inputFields.isEmpty()) {
             AccessibilityNodeInfo inputField = inputFields.get(0);
-            if (inputField.getText() != null) {
+            // 检查文本是否不为 null 且不为空
+            if (inputField.getText() != null && inputField.getText().length() > 0) {
                 hasInputFieldWithText = true;
             }
         }
@@ -43,9 +41,8 @@ public class SearchNovelProcessor implements ScreenProcessor {
         // 回收节点
         recycleNodes(searchButtons);
         recycleNodes(inputFields);
-        recycleNodes(filterNodes);
 
-        // 3. 只有当同时找到搜索按钮和有文本的输入框时，才返回true
+        // 只有当同时找到搜索按钮和有文本的输入框，且操作未完成时，才返回true
         return hasSearchButton && hasInputFieldWithText;
     }
 
@@ -72,7 +69,8 @@ public class SearchNovelProcessor implements ScreenProcessor {
             boolean clickInitiated = AccessibilityActionUtils.performClick(service, targetNode);
             if (clickInitiated) {
                 Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。设置 hasClickedOnThisScreen = true。");
-                service.markActionAsCompleted();
+                // 使用状态管理器标记操作完成
+                service.getStateManager().markActionAsCompleted(AccessibilityConfig.ACTION_ID_CLICK_SEARCH_BUTTON);
                 return true;
             } else {
                 Log.w(AccessibilityConfig.TAG, "点击操作发起失败 (可能节点在点击前变为不可见/不可用)。");

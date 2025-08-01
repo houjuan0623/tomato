@@ -13,33 +13,26 @@ import java.util.List;
 
 public class InputNovelNameProcessor implements ScreenProcessor {
     @Override
-    public boolean canProcess(AccessibilityNodeInfo rootNode) {
-        List<AccessibilityNodeInfo> targetNodes = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_4);
-
-        // 如果没有找到输入框，直接返回false
-        if (targetNodes.isEmpty()) {
+    public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
+        // 检查此操作是否已完成
+        if (service.getStateManager().isActionCompleted(AccessibilityConfig.ACTION_ID_INPUT_NOVEL_NAME)) {
             return false;
         }
-        // 获取第一个节点，并检查其文本内容
-        AccessibilityNodeInfo targetNode = targetNodes.get(0);
-        CharSequence currentText = targetNode.getText();
 
-        // 回收节点
-        for (AccessibilityNodeInfo node : targetNodes) {
-            if (node != null) {
-                node.recycle();
+        List<AccessibilityNodeInfo> targetNodes = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_4);
+
+        boolean canProcess = !targetNodes.isEmpty();
+
+        if (!targetNodes.isEmpty()) {
+            for (AccessibilityNodeInfo node : targetNodes) {
+                if (node != null) {
+                    node.recycle();
+                }
             }
         }
 
-        // 如果文本为"测试输入小说名字"，则表示已经处理过，返回false
-        // TODO: 这里是硬编码，字符串稍后要改为动态的
-        if (currentText != null && "测试输入小说名字".equals(currentText.toString())) {
-            Log.i(AccessibilityConfig.TAG, "输入框中已存在目标文字，无需重复填充。");
-            return false;
-        }
-
-        // 否则，表示可以进行处理
-        return true;
+        // 只有在找到输入框且操作未完成时，才返回 true
+        return canProcess;
     }
 
     @Override
@@ -75,7 +68,8 @@ public class InputNovelNameProcessor implements ScreenProcessor {
             boolean clickInitiated = AccessibilityActionUtils.performInput(service, targetNode, "测试输入小说名字");
             if (clickInitiated) {
                 Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。设置 hasClickedOnThisScreen = true。");
-                service.markActionAsCompleted();
+                // 使用状态管理器标记操作完成
+                service.getStateManager().markActionAsCompleted(AccessibilityConfig.ACTION_ID_INPUT_NOVEL_NAME);
                 return true;
             } else {
                 Log.w(AccessibilityConfig.TAG, "点击操作发起失败 (可能节点在点击前变为不可见/不可用)。");

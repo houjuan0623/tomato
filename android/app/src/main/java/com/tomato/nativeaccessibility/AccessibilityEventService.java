@@ -16,6 +16,8 @@ import com.tomato.processor.SearchNovelProcessor;
 import com.tomato.processor.InputNovelNameProcessor;
 import com.tomato.utils.ScreenProcessor;
 
+import com.tomato.utils.ActionStateManager;
+
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +28,9 @@ import java.util.List;
  * [已修改]
  */
 public class AccessibilityEventService extends AccessibilityService {
+
+    // 集成状态管理
+    private final ActionStateManager actionStateManager = new ActionStateManager();
 
     // 状态标志位：防止在同一个界面上重复点击
     private boolean hasClickedOnThisScreen = false;
@@ -140,6 +145,19 @@ public class AccessibilityEventService extends AccessibilityService {
         }
     }
 
+    @Override
+    public void onInterrupt() {
+        Log.w(AccessibilityConfig.TAG, "无障碍服务被中断。");
+        mHandler.removeCallbacksAndMessages(null);
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        Log.i(AccessibilityConfig.TAG, "无障碍服务已解绑。");
+        mHandler.removeCallbacksAndMessages(null);
+        return super.onUnbind(intent);
+    }
+
     /**
      * 尝试处理当前屏幕，并包含重试逻辑。
      * @param attempt 当前的尝试次数。
@@ -162,7 +180,7 @@ public class AccessibilityEventService extends AccessibilityService {
         boolean processedSuccessfully = false;
         // 遍历所有注册的处理器
         for (ScreenProcessor processor : screenProcessors) {
-            if (processor.canProcess(rootNode)) {
+            if (processor.canProcess(this, rootNode)) {
                 Log.d(AccessibilityConfig.TAG, "找到处理器: " + processor.getClass().getSimpleName());
                 // 把处理任务交给它，并获取结果
                 processedSuccessfully = processor.process(this, rootNode);
@@ -231,16 +249,11 @@ public class AccessibilityEventService extends AccessibilityService {
         }, AccessibilityConfig.RETRY_DELAY_MS);
     }
 
-    @Override
-    public void onInterrupt() {
-        Log.w(AccessibilityConfig.TAG, "无障碍服务被中断。");
-        mHandler.removeCallbacksAndMessages(null);
-    }
-
-    @Override
-    public boolean onUnbind(Intent intent) {
-        Log.i(AccessibilityConfig.TAG, "无障碍服务已解绑。");
-        mHandler.removeCallbacksAndMessages(null);
-        return super.onUnbind(intent);
+    /**
+     * 获取状态管理器
+     * @return 状态管理器
+     */
+    public ActionStateManager getStateManager() {
+        return actionStateManager;
     }
 }
