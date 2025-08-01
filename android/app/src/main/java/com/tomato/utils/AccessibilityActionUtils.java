@@ -1,13 +1,15 @@
 package com.tomato.utils;
 
-import com.tomato.nativeaccessibility.AccessibilityConfig;
-
 import android.accessibilityservice.AccessibilityService;
 import android.view.accessibility.AccessibilityNodeInfo;
+import android.os.Bundle;
 import android.util.Log;
 import android.graphics.Rect;
 import android.graphics.Path;
 import android.accessibilityservice.GestureDescription;
+import android.content.ClipData;
+import android.content.ClipboardManager;
+import android.content.Context;
 
 public class AccessibilityActionUtils {
 
@@ -134,5 +136,96 @@ public class AccessibilityActionUtils {
             }
         };
         return service.dispatchGesture(gestureBuilder.build(), localCallback, null);
+    }
+
+    /**
+     * [新增功能] 在指定的可编辑节点（如 EditText）中输入文本。
+     * 此方法会先尝试为节点获取焦点，然后执行设置文本的操作。
+     *
+     * @param targetNode  目标输入框节点。此节点应由调用者在使用后回收。
+     * @param textToInput 要输入的文本。
+     * @return 如果设置文本的操作成功发起，则返回 true；否则返回 false。
+     */
+    public static boolean performInput(AccessibilityService service, AccessibilityNodeInfo targetNode, String textToInput) {
+        if (targetNode == null) {
+            Log.w(TAG, "performInput: 目标节点为空。");
+            return false;
+        }
+        if (textToInput == null) {
+            Log.w(TAG, "performInput: 将要输入的文本为空。");
+            return false;
+        }
+        // 步骤 1: 验证节点是否可编辑
+        if (!targetNode.isEditable()) {
+            Log.w(TAG, "performInput: Node (ID: " + targetNode.getViewIdResourceName() + ") is not editable. Input cancelled.");
+            return false;
+        }
+
+        // 步骤 2: 尝试获取焦点，使用三级回退策略 (FOCUS -> CLICK -> GESTURE)
+        boolean focusActionInitiated = targetNode.performAction(AccessibilityNodeInfo.ACTION_FOCUS);
+        if (!focusActionInitiated) {
+            Log.d(TAG, "performInput: ACTION_FOCUS failed, trying ACTION_CLICK...");
+            focusActionInitiated = targetNode.performAction(AccessibilityNodeInfo.ACTION_CLICK);
+        }
+        if (!focusActionInitiated) {
+            Log.d(TAG, "performInput: ACTION_CLICK failed, trying gesture click as a last resort...");
+            Rect bounds = new Rect();
+            targetNode.getBoundsInScreen(bounds);
+            if (bounds.width() > 0 && bounds.height() > 0) {
+                // 注意: 手势是异步的。这是一种最大努力的尝试。
+                // 返回值仅表示手势是否成功派发，不保证焦点已立即获取。
+                focusActionInitiated = clickByGesture(service, bounds.centerX(), bounds.centerY(), null);
+            } else {
+                Log.w(TAG, "performInput: Node has invalid bounds for gesture click, skipping gesture.");
+            }
+        }
+
+        if (!focusActionInitiated) {
+            Log.e(TAG, "performInput: Failed to initiate focus action via FOCUS, CLICK, or GESTURE.");
+            return false;
+        }
+
+        Log.i(TAG, "performInput: Focus action initiated for node (ID: " + targetNode.getViewIdResourceName() + "). Proceeding to set text.");
+
+        // 步骤 3: 准备参数并执行 ACTION_SET_TEXT
+        // 注意：如果焦点是通过异步手势获取的，这里可能会因为UI尚未响应而失败。
+        // 在实际应用中，可能需要在手势后加入短暂延迟或更复杂的事件监听逻辑
+        Bundle arguments = new Bundle();
+        arguments.putCharSequence(AccessibilityNodeInfo.ACTION_ARGUMENT_SET_TEXT_CHARSEQUENCE, textToInput);
+
+        if (targetNode.performAction(AccessibilityNodeInfo.ACTION_SET_TEXT, arguments)) {
+            Log.i(TAG, "performInput: ACTION_SET_TEXT successful on node (ID: " + targetNode.getViewIdResourceName() + ").");
+            return true;
+        }
+
+        // [备选方案] 如果 ACTION_SET_TEXT 失败，尝试使用剪贴板粘贴
+        Log.w(TAG, "performInput: ACTION_SET_TEXT failed. Falling back to clipboard paste.");
+        ClipboardManager clipboard = (ClipboardManager) service.getSystemService(Context.CLIPBOARD_SERVICE);
+        if (clipboard == null) {
+            Log.e(TAG, "performInput: Could not get ClipboardManager.");
+            return false;
+        }
+        // 保存当前剪贴板内容，以便后续恢复
+        ClipData originalClip = clipboard.getPrimaryClip();
+        try {
+            // 设置新的剪贴板内容
+            ClipData clip = ClipData.newPlainText("text_to_paste", textToInput);
+            clipboard.setPrimaryClip(clip);
+
+            // 执行粘贴操作
+            if (targetNode.performAction(AccessibilityNodeInfo.ACTION_PASTE)) {
+                Log.i(TAG, "performInput: ACTION_PASTE successful.");
+                return true;
+            } else {
+                Log.e(TAG, "performInput: ACTION_PASTE failed.");
+                return false;
+            }
+        } finally {
+            // 无论成功与否，都尝试恢复原始剪贴板内容
+            if (originalClip != null) {
+                clipboard.setPrimaryClip(originalClip);
+                Log.d(TAG, "performInput: Original clipboard content restored.");
+            }
+        }
     }
 }
