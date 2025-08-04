@@ -14,9 +14,13 @@ import com.tomato.processor.MainPageProcessor;
 import com.tomato.processor.AddToHomePageProcessor;
 import com.tomato.processor.SearchNovelProcessor;
 import com.tomato.processor.InputNovelNameProcessor;
+import com.tomato.processor.FindAndClickNovelProcessor;
+import com.tomato.processor.ReadingPageProcessor;
+
 import com.tomato.utils.ScreenProcessor;
 
 import com.tomato.utils.ActionStateManager;
+import com.tomato.utils.State;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -55,10 +59,14 @@ public class AccessibilityEventService extends AccessibilityService {
     }
 
     private void initializeProcessors() {
+        // 优先处理可能出现的广告和弹窗
+        screenProcessors.add(new AdProcessor());
         screenProcessors.add(new MainPageProcessor());
         screenProcessors.add(new AddToHomePageProcessor());
         screenProcessors.add(new InputNovelNameProcessor());
         screenProcessors.add(new SearchNovelProcessor());
+        screenProcessors.add(new FindAndClickNovelProcessor());
+        screenProcessors.add(new ReadingPageProcessor());
         // ... 如果有更多界面，继续添加 ...
     }
 
@@ -182,8 +190,12 @@ public class AccessibilityEventService extends AccessibilityService {
      * 重置服务的状态，例如点击标志和待处理任务。
      */
     private void resetServiceState() {
-        Log.d(AccessibilityConfig.TAG, "重置服务状态: hasClickedOnThisScreen = false, 清除 Handler 消息。");
+        // 注意：此方法会取消所有挂起的 Handler 任务，包括重试和自动翻页循环。
+        Log.d(AccessibilityConfig.TAG, "重置服务状态: 清除所有挂起的 Handler 消息。");
         mHandler.removeCallbacksAndMessages(null); // 取消所有挂起的重试任务
+        // [重要] 同时重置翻页处理器的循环标志，以允许它在下次事件检查时可以被重新启动。
+        ReadingPageProcessor.resetLoopFlag();
+        AdProcessor.resetWaitFlag(); // [新增] 重置广告处理器的等待标志
     }
 
     /**
@@ -221,6 +233,10 @@ public class AccessibilityEventService extends AccessibilityService {
      */
     public ActionStateManager getStateManager() {
         return ActionStateManager.getInstance();
+    }
+
+    public Handler getHandler() {
+        return mHandler;
     }
 
     /**

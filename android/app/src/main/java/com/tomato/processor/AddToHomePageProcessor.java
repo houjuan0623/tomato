@@ -11,6 +11,10 @@ import com.tomato.nativeaccessibility.AccessibilityEventService;
 
 import java.util.List;
 
+/**
+ * 处理“Add to Home Screen”提示框的处理器。
+ * 这个处理器会在识别到提示框时，点击“cancel”按钮。
+ */
 public class AddToHomePageProcessor implements ScreenProcessor {
     /**
      * 判断当前屏幕是否可以处理。如果有需要处理的特征元素，则返回 true。这里的特征元素是标题Add to Home Screen。

@@ -12,6 +12,11 @@ import com.tomato.nativeaccessibility.AccessibilityEventService;
 
 import java.util.List;
 
+/**
+ * 处理输入小说名的处理器。
+ * 这个处理器会在识别到搜索小说对应的输入框时，填充小说名。
+ * 小说名从共享状态中获取。
+ */
 public class InputNovelNameProcessor implements ScreenProcessor {
     @Override
     public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
@@ -27,20 +32,21 @@ public class InputNovelNameProcessor implements ScreenProcessor {
             return false;
         }
 
-        List<AccessibilityNodeInfo> targetNodes = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_4);
-
-        boolean canProcess = !targetNodes.isEmpty();
-
-        if (!targetNodes.isEmpty()) {
-            for (AccessibilityNodeInfo node : targetNodes) {
-                if (node != null) {
-                    node.recycle();
+        List<AccessibilityNodeInfo> targetNodes = null;
+        try {
+            targetNodes = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_INPUT_BUTTON_4);
+            // 只有在找到输入框且操作未完成时，才返回 true
+            return !targetNodes.isEmpty();
+        } finally {
+            // 确保在任何情况下都回收节点
+            if (targetNodes != null) {
+                for (AccessibilityNodeInfo node : targetNodes) {
+                    if (node != null) {
+                        node.recycle();
+                    }
                 }
             }
         }
-
-        // 只有在找到输入框且操作未完成时，才返回 true
-        return canProcess;
     }
 
     @Override
@@ -72,8 +78,14 @@ public class InputNovelNameProcessor implements ScreenProcessor {
             Log.d(AccessibilityConfig.TAG, "已找到可编辑的输入框。");
             // 使用 AccessibilityActionUtils 执行点击
             // performInput 内部会再次校验可见性和可用性作为安全措施
-            // TODO: 这里的字符串稍后要改为动态的
-            boolean clickInitiated = AccessibilityActionUtils.performInput(service, targetNode, "测试输入小说名字");
+            // 从共享状态中获取要搜索的小说名
+            String novelNameToSearch = State.getInstance().getNovelNameToSearch();
+            if (novelNameToSearch == null || novelNameToSearch.isEmpty()) {
+                // 虽然 canProcess 中已经检查过，但在这里再次检查以确保稳健性
+                Log.w(AccessibilityConfig.TAG, "要搜索的小说名为空，无法执行输入操作。");
+                return false;
+            }
+            boolean clickInitiated = AccessibilityActionUtils.performInput(service, targetNode, novelNameToSearch);
             if (clickInitiated) {
                 Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。");
                 // 使用状态管理器标记操作完成

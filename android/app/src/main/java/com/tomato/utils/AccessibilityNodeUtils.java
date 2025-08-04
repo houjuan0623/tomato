@@ -65,4 +65,18 @@ public class AccessibilityNodeUtils {
         }
         return foundNodes;
     }
+
+    /**
+     * 辅助方法，用于统一回收 AccessibilityNodeInfo 节点列表。
+     * @param nodes 要回收的节点列表。
+     */
+    public static void recycleNodes(List<AccessibilityNodeInfo> nodes) {
+        if (nodes != null) {
+            for (AccessibilityNodeInfo node : nodes) {
+                if (node != null) {
+                    node.recycle();
+                }
+            }
+        }
+    }
 }

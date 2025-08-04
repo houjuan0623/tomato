@@ -11,6 +11,11 @@ import com.tomato.nativeaccessibility.AccessibilityEventService;
 
 import java.util.List;
 
+/**
+ * 处理搜索小说的处理器。
+ * 这个处理器会在识别到搜索页时，点击搜索按钮。
+ * 只有当搜索按钮存在且输入框中有文本时才会处理。
+ */
 public class SearchNovelProcessor implements ScreenProcessor {
     @Override
     public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
@@ -39,8 +44,8 @@ public class SearchNovelProcessor implements ScreenProcessor {
         }
 
         // 回收节点
-        recycleNodes(searchButtons);
-        recycleNodes(inputFields);
+        AccessibilityNodeUtils.recycleNodes(searchButtons);
+        AccessibilityNodeUtils.recycleNodes(inputFields);
 
         // 只有当同时找到搜索按钮和有文本的输入框，且操作未完成时，才返回true
         return hasSearchButton && hasInputFieldWithText;
@@ -80,19 +85,6 @@ public class SearchNovelProcessor implements ScreenProcessor {
             Log.d(AccessibilityConfig.TAG, "回收 " + targetNodes.size() + " 个找到的节点。");
             // 遍历列表，回收每一个节点
             for (AccessibilityNodeInfo node : targetNodes) {
-                if (node != null) {
-                    node.recycle();
-                }
-            }
-        }
-    }
-
-    /**
-     * 辅助方法，用于统一回收 AccessibilityNodeInfo 节点列表。
-     */
-    private void recycleNodes(List<AccessibilityNodeInfo> nodes) {
-        if (nodes != null) {
-            for (AccessibilityNodeInfo node : nodes) {
                 if (node != null) {
                     node.recycle();
                 }

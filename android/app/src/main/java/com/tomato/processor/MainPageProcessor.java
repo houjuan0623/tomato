@@ -11,6 +11,10 @@ import com.tomato.nativeaccessibility.AccessibilityEventService;
 
 import java.util.List;
 
+/**
+ * 处理首页的处理器。
+ * 这个处理器会在识别到首页时，点击搜索 icon。
+ */
 public class MainPageProcessor implements ScreenProcessor {
     @Override
     public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {

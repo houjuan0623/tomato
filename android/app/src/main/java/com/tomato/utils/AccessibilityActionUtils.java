@@ -228,4 +228,57 @@ public class AccessibilityActionUtils {
             }
         }
     }
+    
+    /**
+     * [新增功能] 在屏幕上执行一次通用的向上滑动（从下到上），用于滚动列表。
+     * 这是当 ACTION_SCROLL_FORWARD 失败时的备用方案。
+     *
+     * @param service AccessibilityService 实例，用于获取屏幕尺寸和派发手势。
+     * @return 如果手势成功派发则返回 true，否则返回 false。
+     */
+    public static boolean performGenericSwipeUp(AccessibilityService service) {
+        // 获取屏幕尺寸
+        android.util.DisplayMetrics displayMetrics = service.getResources().getDisplayMetrics();
+        int screenHeight = displayMetrics.heightPixels;
+        int screenWidth = displayMetrics.widthPixels;
+
+        // 定义滑动的起始和结束点
+        // 从屏幕 80% 高度的中心位置滑动到 20% 高度的中心位置
+        int startX = screenWidth / 2;
+        int startY = (int) (screenHeight * 0.8);
+        int endX = screenWidth / 2;
+        int endY = (int) (screenHeight * 0.2);
+        long durationMs = 350; // 500毫秒的滑动时间
+
+        Log.i(TAG, "performGenericSwipeUp: Performing generic swipe from (" + startX + "," + startY + ") to (" + endX + "," + endY + ")");
+        return performSwipe(service, startX
+                , startY, endX, endY, durationMs, null);
+    }
+
+    /**
+     * [新增功能] 在屏幕上执行一次通用的向左滑动（从右到左），用于翻页。
+     *
+     * @param service AccessibilityService 实例，用于获取屏幕尺寸和派发手势。
+     * @return 如果手势成功派发则返回 true，否则返回 false。
+     */
+    public static boolean performGenericSwipeLeft(AccessibilityService service) {
+        // 获取屏幕尺寸
+        android.util.DisplayMetrics displayMetrics = service.getResources().getDisplayMetrics();
+        int screenHeight = displayMetrics.heightPixels;
+        int screenWidth = displayMetrics.widthPixels;
+
+        // 定义滑动的起始和结束点
+        // 从屏幕 80% 宽度的中心位置滑动到 20% 宽度的中心位置
+        // 为了避免触发边缘区域的特殊功能，我们将滑动范围稍微向内收缩
+        int startX = (int) (screenWidth * 0.85);
+        int startY = screenHeight / 2;
+        int endX = (int) (screenWidth * 0.15);
+        int endY = screenHeight / 2 + 5; // 增加一个微小的垂直位移，模拟更自然的手势
+        // 持续时间是关键。过长（像拖动）或过短（像点击）都可能无效。
+        // 500ms 是一个比较典型的“轻拂”手势时长，可以根据目标应用调整。
+        long durationMs = 500;
+
+        Log.i(TAG, "performGenericSwipeLeft: Performing generic swipe from (" + startX + "," + startY + ") to (" + endX + "," + endY + ")");
+        return performSwipe(service, startX, startY, endX, endY, durationMs, null);
+    }
 }
