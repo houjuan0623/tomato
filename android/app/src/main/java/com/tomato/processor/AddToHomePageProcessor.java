@@ -60,7 +60,7 @@ public class AddToHomePageProcessor implements ScreenProcessor {
             // performClick 内部会再次校验可见性和可用性作为安全措施
             boolean clickInitiated = AccessibilityActionUtils.performClick(service, targetNode);
             if (clickInitiated) {
-                Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。设置 hasClickedOnThisScreen = true。");
+                Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。");
                 // 使用状态管理器标记操作完成
                 service.getStateManager().markActionAsCompleted(AccessibilityConfig.ACTION_ID_DISMISS_ADD_TO_HOME_DIALOG);
                 return true;

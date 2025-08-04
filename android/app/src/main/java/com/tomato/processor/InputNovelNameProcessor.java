@@ -3,6 +3,7 @@ package com.tomato.processor;
 import android.view.accessibility.AccessibilityNodeInfo;
 import android.util.Log;
 
+import com.tomato.utils.State;
 import com.tomato.utils.AccessibilityActionUtils;
 import com.tomato.utils.AccessibilityConfig;
 import com.tomato.utils.AccessibilityNodeUtils;
@@ -16,6 +17,13 @@ public class InputNovelNameProcessor implements ScreenProcessor {
     public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
         // 检查此操作是否已完成
         if (service.getStateManager().isActionCompleted(AccessibilityConfig.ACTION_ID_INPUT_NOVEL_NAME)) {
+            return false;
+        }
+
+        // 2. 从共享状态中获取要搜索的小说名
+        String novelNameToSearch = State.getInstance().getNovelNameToSearch();
+        if (novelNameToSearch == null || novelNameToSearch.isEmpty()) {
+            // 如果没有从 App 端设置要搜索的小说名，则不处理
             return false;
         }
 
@@ -67,7 +75,7 @@ public class InputNovelNameProcessor implements ScreenProcessor {
             // TODO: 这里的字符串稍后要改为动态的
             boolean clickInitiated = AccessibilityActionUtils.performInput(service, targetNode, "测试输入小说名字");
             if (clickInitiated) {
-                Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。设置 hasClickedOnThisScreen = true。");
+                Log.i(AccessibilityConfig.TAG, "点击操作已成功发起。");
                 // 使用状态管理器标记操作完成
                 service.getStateManager().markActionAsCompleted(AccessibilityConfig.ACTION_ID_INPUT_NOVEL_NAME);
                 return true;

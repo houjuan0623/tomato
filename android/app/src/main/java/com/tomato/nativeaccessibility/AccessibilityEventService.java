@@ -20,6 +20,7 @@ import com.tomato.utils.ActionStateManager;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 /**
  * 核心的无障碍服务类。
@@ -29,17 +30,18 @@ import java.util.List;
  */
 public class AccessibilityEventService extends AccessibilityService {
 
-    // 集成状态管理
-    private final ActionStateManager actionStateManager = new ActionStateManager();
-
-    // 状态标志位：防止在同一个界面上重复点击
-    private boolean hasClickedOnThisScreen = false;
-
     // 使用 Handler 来处理延迟操作，避免阻塞主线程
     private final Handler mHandler = new Handler(Looper.getMainLooper());
 
     // 创建一个处理器列表
     private final List<ScreenProcessor> screenProcessors = new ArrayList<>();
+
+    // 用于生成随机延迟
+    private final Random random = new Random();
+
+    // 随机延迟的选项 (毫秒)
+    private final int[] processingDelays = {3000, 5000};
+
 
     /**
      * 当服务成功连接时被调用。
@@ -61,15 +63,6 @@ public class AccessibilityEventService extends AccessibilityService {
     }
 
     /**
-     * 新增一个公共方法，供处理器调用来更新状态
-     */
-    public void markActionAsCompleted() {
-        Log.i(AccessibilityConfig.TAG, "处理器报告操作完成，设置 hasClickedOnThisScreen = true。");
-        this.hasClickedOnThisScreen = true;
-        mHandler.removeCallbacksAndMessages(null); // 取消所有重试
-    }
-
-    /**
      * 当系统检测到符合我们配置的无障碍事件时，此方法会被调用。
      */
     @Override
@@ -82,13 +75,6 @@ public class AccessibilityEventService extends AccessibilityService {
         // 如果事件不是来自目标应用
         if (!AccessibilityConfig.TARGET_PACKAGE_NAME_1.equals(event.getPackageName().toString()) &&
                 !AccessibilityConfig.TARGET_PACKAGE_NAME_2.equals(event.getPackageName().toString())) {
-            // 如果用户之前在目标应用内，现在离开了，就重置状态
-            if (hasClickedOnThisScreen) {
-                Log.d(AccessibilityConfig.TAG, "用户离开目标应用，重置所有状态。");
-                hasClickedOnThisScreen = false;
-                // 当离开目标应用时，取消所有待处理的重试任务
-                mHandler.removeCallbacksAndMessages(null);
-            }
             return;
         }
 
@@ -96,7 +82,8 @@ public class AccessibilityEventService extends AccessibilityService {
 
         // 主要监听窗口变化事件，这是进入新界面的最可靠信号
         if (eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED ||
-                eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
+                eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED ||
+                eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED) {
             Log.d(AccessibilityConfig.TAG, "接收到事件: " + AccessibilityEvent.eventTypeToString(eventType) +
                     " 来自包: " + event.getPackageName() +
                     " 类名: " + event.getClassName());
@@ -107,41 +94,32 @@ public class AccessibilityEventService extends AccessibilityService {
                 resetServiceState(); // 重置点击标记和取消挂起的重试
             }
 
-            // 如果本屏幕已点击过，并且不是因为窗口状态改变而重置的，则不再处理
-            // (允许在窗口状态改变后立即重新尝试点击)
-            if (hasClickedOnThisScreen && eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-                Log.d(AccessibilityConfig.TAG, "已在本屏幕点击过，忽略事件: " + AccessibilityEvent.eventTypeToString(eventType));
-                return;
-            }
+            // --- 新增：引入随机延迟 ---
+            long randomDelay = getRandomProcessingDelay();
 
-            AccessibilityNodeInfo rootNode = getRootInActiveWindow();
-            if (rootNode != null) {
-                // 只有当尚未在本屏幕点击过时，才尝试查找和点击
-                if (!hasClickedOnThisScreen) {
-                    Log.d(AccessibilityConfig.TAG, "尝试处理节点查找与点击...");
-                    tryProcessingScreen(0);
-                } else {
-                    Log.d(AccessibilityConfig.TAG, "hasClickedOnThisScreen 为 true，跳过 tryProcessingScreen。");
+            Log.d(AccessibilityConfig.TAG, "计划在 " + randomDelay + "ms 后尝试处理屏幕内容 (事件: " + AccessibilityEvent.eventTypeToString(eventType) + ")");
+
+            String packageName = event.getPackageName().toString();
+
+            mHandler.postDelayed(() -> {
+                if (!AccessibilityConfig.TARGET_PACKAGE_NAME_1.equals(packageName) &&
+                        !AccessibilityConfig.TARGET_PACKAGE_NAME_2.equals(packageName)) {
+                    Log.d(AccessibilityConfig.TAG, "延迟任务执行时发现已离开目标应用，取消处理。");
+                    resetServiceState(); // 确保状态也重置
+                    return;
                 }
-                rootNode.recycle();
-            } else {
-                // 在这里使用延迟处理的策略解决窗口滑动的瞬间出现的问题。
-                // RootNode 为 null，特别是对于内容变化或滑动事件，尝试延迟获取
-                Log.w(AccessibilityConfig.TAG, "事件 " + AccessibilityEvent.eventTypeToString(eventType) + " 发生时，rootNode 为 null。尝试延迟获取...");
-                mHandler.postDelayed(() -> {
-                    Log.d(AccessibilityConfig.TAG, "延迟后尝试重新获取 rootNode。");
-                    AccessibilityNodeInfo delayedRootNode = getRootInActiveWindow();
-                    if (delayedRootNode != null) {
-                        if (!hasClickedOnThisScreen) { // 再次检查点击状态
-                            Log.d(AccessibilityConfig.TAG, "延迟获取 rootNode 成功，准备处理节点查找与点击。");
-                            tryProcessingScreen(0);
-                        }
-                        delayedRootNode.recycle();
-                    } else {
-                        Log.w(AccessibilityConfig.TAG, "延迟后仍然未能获取 rootNode。");
-                    }
-                }, 2000); // 延迟 2 秒，这个值需要测试和调整
-            }
+
+                AccessibilityNodeInfo rootNode = getRootInActiveWindow();
+                if (rootNode != null) {
+                    Log.d(AccessibilityConfig.TAG, "获取 rootNode 成功，准备处理节点查找与点击。");
+                    tryProcessingScreen(0);
+                    rootNode.recycle();
+                } else {
+                    Log.w(AccessibilityConfig.TAG, "未能获取 rootNode。");
+                }
+
+            }, randomDelay);
+
         }
     }
 
@@ -160,6 +138,7 @@ public class AccessibilityEventService extends AccessibilityService {
 
     /**
      * 尝试处理当前屏幕，并包含重试逻辑。
+     * 
      * @param attempt 当前的尝试次数。
      */
     private void tryProcessingScreen(int attempt) {
@@ -192,11 +171,7 @@ public class AccessibilityEventService extends AccessibilityService {
         rootNode.recycle();
 
         // 根据处理结果决定下一步
-        if (processedSuccessfully) {
-            // 如果成功，markActionAsCompleted 已经在处理器内部调用了
-            // 所以这里不需要做任何事
-            Log.i(AccessibilityConfig.TAG, "屏幕处理成功。");
-        } else {
+        if (!processedSuccessfully) {
             // 如果没有找到处理器，或者处理器执行失败
             Log.w(AccessibilityConfig.TAG, "当前屏幕无处理器或处理失败，计划重试。");
             scheduleNextAttempt(attempt + 1);
@@ -208,7 +183,6 @@ public class AccessibilityEventService extends AccessibilityService {
      */
     private void resetServiceState() {
         Log.d(AccessibilityConfig.TAG, "重置服务状态: hasClickedOnThisScreen = false, 清除 Handler 消息。");
-        hasClickedOnThisScreen = false;
         mHandler.removeCallbacksAndMessages(null); // 取消所有挂起的重试任务
     }
 
@@ -218,24 +192,15 @@ public class AccessibilityEventService extends AccessibilityService {
      * @param nextAttempt 下一次尝试的计数。
      */
     private void scheduleNextAttempt(int nextAttempt) {
-        // 如果已经点击，或已达到最大尝试次数，则不调度
-        if (hasClickedOnThisScreen) {
-            Log.d(AccessibilityConfig.TAG, "scheduleNextAttempt: 已点击，不调度重试。");
-            return;
-        }
         if (nextAttempt >= AccessibilityConfig.MAX_RETRY_ATTEMPTS) {
             Log.w(AccessibilityConfig.TAG, "scheduleNextAttempt: 已达最大重试次数，不再调度。");
             return;
         }
 
-        Log.d(AccessibilityConfig.TAG, "计划在 " + AccessibilityConfig.RETRY_DELAY_MS + "ms 后进行第 " + (nextAttempt + 1) + " 次尝试。");
+        Log.d(AccessibilityConfig.TAG,
+                "计划在 " + AccessibilityConfig.RETRY_DELAY_MS + "ms 后进行第 " + (nextAttempt + 1) + " 次尝试。");
 
         mHandler.postDelayed(() -> {
-            // 在执行延迟任务前，再次检查是否已经点击过了
-            if (hasClickedOnThisScreen) {
-                Log.d(AccessibilityConfig.TAG, "延迟任务执行时发现已点击，取消重试。");
-                return;
-            }
             Log.d(AccessibilityConfig.TAG, "执行计划中的重试 (第 " + (nextAttempt + 1) + " 次尝试)。");
             AccessibilityNodeInfo newRootNode = getRootInActiveWindow();
             if (newRootNode != null) {
@@ -251,9 +216,19 @@ public class AccessibilityEventService extends AccessibilityService {
 
     /**
      * 获取状态管理器
+     * 
      * @return 状态管理器
      */
     public ActionStateManager getStateManager() {
-        return actionStateManager;
+        return ActionStateManager.getInstance();
+    }
+
+    /**
+     * 获取一个随机的延迟时间。
+     * 
+     * @return 2000, 3000, or 5000 (ms)
+     */
+    private long getRandomProcessingDelay() {
+        return processingDelays[random.nextInt(processingDelays.length)];
     }
 }

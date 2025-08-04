@@ -15,6 +15,8 @@ public class ActionStateManager {
 
     private final Set<String> completedActions = new HashSet<>();
 
+    private static final ActionStateManager instance = new ActionStateManager();
+
     /**
      * 将一个操作标记为已完成。
      *
@@ -39,6 +41,10 @@ public class ActionStateManager {
             Log.d(TAG, "Check: Action '" + actionIdentifier + "' is already completed.");
         }
         return isCompleted;
+    }
+
+    public static ActionStateManager getInstance() {
+        return instance;
     }
 
     /**
