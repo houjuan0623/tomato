@@ -60,7 +60,6 @@ public class AccessibilityEventService extends AccessibilityService {
 
     private void initializeProcessors() {
         // 优先处理可能出现的广告和弹窗
-        screenProcessors.add(new AdProcessor());
         screenProcessors.add(new MainPageProcessor());
         screenProcessors.add(new AddToHomePageProcessor());
         screenProcessors.add(new InputNovelNameProcessor());
@@ -195,7 +194,6 @@ public class AccessibilityEventService extends AccessibilityService {
         mHandler.removeCallbacksAndMessages(null); // 取消所有挂起的重试任务
         // [重要] 同时重置翻页处理器的循环标志，以允许它在下次事件检查时可以被重新启动。
         ReadingPageProcessor.resetLoopFlag();
-        AdProcessor.resetWaitFlag(); // [新增] 重置广告处理器的等待标志
     }
 
     /**
