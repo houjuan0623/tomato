@@ -1,5 +1,12 @@
 package com.tomato.nativeaccessibility;
 
+import com.tomato.processor.AdProcessor;
+import com.tomato.processor.MainPageProcessor;
+import com.tomato.processor.AddToHomePageProcessor;
+import com.tomato.processor.SearchNovelProcessor;
+import com.tomato.processor.InputNovelNameProcessor;
+import com.tomato.processor.FindAndClickNovelProcessor;
+import com.tomato.processor.ReadingPageProcessor;
 import com.tomato.utils.AccessibilityConfig;
 
 import android.accessibilityservice.AccessibilityService;
@@ -9,13 +16,6 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-
-import com.tomato.processor.MainPageProcessor;
-import com.tomato.processor.AddToHomePageProcessor;
-import com.tomato.processor.SearchNovelProcessor;
-import com.tomato.processor.InputNovelNameProcessor;
-import com.tomato.processor.FindAndClickNovelProcessor;
-import com.tomato.processor.ReadingPageProcessor;
 
 import com.tomato.utils.ScreenProcessor;
 
@@ -195,7 +195,7 @@ public class AccessibilityEventService extends AccessibilityService {
         mHandler.removeCallbacksAndMessages(null); // 取消所有挂起的重试任务
         // [重要] 同时重置翻页处理器的循环标志，以允许它在下次事件检查时可以被重新启动。
         ReadingPageProcessor.resetLoopFlag();
-        AdProcessor.resetWaitFlag(); // [新增] 重置广告处理器的等待标志
+//        AdProcessor.resetWaitFlag(); // [新增] 重置广告处理器的等待标志
     }
 
     /**

@@ -7,7 +7,8 @@ package com.tomato.utils;
 public final class AccessibilityConfig {
 
     // 私有构造函数，防止该类被实例化
-    private AccessibilityConfig() {}
+    private AccessibilityConfig() {
+    }
 
     // --- App Targeting ---
     /**
@@ -70,6 +71,12 @@ public final class AccessibilityConfig {
      * [新增] 番茄小说阅读页的特征元素ID 2。
      */
     public static final String TARGET_FOR_READING_PAGE_FEATURE_2 = "com.dragon.read:id/c9";
+
+    /**
+     * 每章结束的时候广告对应的resource id
+     */
+    public static final String AD_BUTTON_ID = "com.dragon.read:id/ind";
+
     // --- Logging ---
     /**
      * 日志标签。
