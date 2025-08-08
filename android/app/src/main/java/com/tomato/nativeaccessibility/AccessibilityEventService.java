@@ -1,5 +1,12 @@
 package com.tomato.nativeaccessibility;
 
+import com.tomato.processor.AdProcessor;
+import com.tomato.processor.MainPageProcessor;
+import com.tomato.processor.AddToHomePageProcessor;
+import com.tomato.processor.SearchNovelProcessor;
+import com.tomato.processor.InputNovelNameProcessor;
+import com.tomato.processor.FindAndClickNovelProcessor;
+import com.tomato.processor.ReadingPageProcessor;
 import com.tomato.utils.AccessibilityConfig;
 
 import android.accessibilityservice.AccessibilityService;
@@ -9,13 +16,6 @@ import android.os.Looper;
 import android.util.Log;
 import android.view.accessibility.AccessibilityEvent;
 import android.view.accessibility.AccessibilityNodeInfo;
-
-import com.tomato.processor.MainPageProcessor;
-import com.tomato.processor.AddToHomePageProcessor;
-import com.tomato.processor.SearchNovelProcessor;
-import com.tomato.processor.InputNovelNameProcessor;
-import com.tomato.processor.FindAndClickNovelProcessor;
-import com.tomato.processor.ReadingPageProcessor;
 
 import com.tomato.utils.ScreenProcessor;
 

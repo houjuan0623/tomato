@@ -11,14 +11,21 @@ import com.tomato.utils.ScreenProcessor;
 import com.tomato.utils.State;
 
 import java.util.List;
+import java.util.Random;
 
 /**
+ * // TODO: 其他processor在执行process函数的时候，这里的不要再执行了，其他的process退出的时候，这里继续执行。
  * 处理器，用于处理小说阅读页面，主要负责自动向左滑动翻页。
  */
 public class ReadingPageProcessor implements ScreenProcessor {
     // 使用 volatile 保证多线程间的可见性
     private static volatile boolean isLoopRunning = false;
-    
+
+    // 用于生成随机延迟
+    private final Random random = new Random();
+    // 随机延迟的选项 (毫秒)
+    private final int[] swipeDelays = { 2000, 3000, 3500, 4000 };
+
     @Override
     public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
         if (isLoopRunning) {
@@ -55,12 +62,15 @@ public class ReadingPageProcessor implements ScreenProcessor {
                 } else {
                     // 不在阅读页（可能临时切换、弹窗等），不滑动也不停止循环，仅等待
                     Log.d(AccessibilityConfig.TAG, "翻页循环: 当前不在阅读页，暂停滑动，等待下次检查。");
-                    if (currentRoot != null) currentRoot.recycle();
+                    if (currentRoot != null)
+                        currentRoot.recycle();
                 }
 
                 // 3. 无论本次是否滑动，都计划下一次检查
-                Log.d(AccessibilityConfig.TAG, "计划在 " + AccessibilityConfig.AUTO_READING_SWIPE_DELAY_MS + "ms 后进行下一次翻页。");
-                service.getHandler().postDelayed(this, AccessibilityConfig.AUTO_READING_SWIPE_DELAY_MS);
+                long randomDelay = swipeDelays[random.nextInt(swipeDelays.length)];
+                Log.d(AccessibilityConfig.TAG,
+                        "计划在 " + randomDelay + "ms 后进行下一次翻页。");
+                service.getHandler().postDelayed(this, randomDelay);
             }
         };
 
@@ -72,6 +82,7 @@ public class ReadingPageProcessor implements ScreenProcessor {
 
     /**
      * 辅助方法，检查当前是否在阅读页面。
+     * 
      * @param rootNode 根节点
      * @return 如果是阅读页面则返回 true
      */
@@ -79,11 +90,13 @@ public class ReadingPageProcessor implements ScreenProcessor {
         List<AccessibilityNodeInfo> featureNodes1 = null;
         List<AccessibilityNodeInfo> featureNodes2 = null;
         try {
-            featureNodes1 = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_READING_PAGE_FEATURE_1);
+            featureNodes1 = AccessibilityNodeUtils.findNodesByResourceID(rootNode,
+                    AccessibilityConfig.TARGET_FOR_READING_PAGE_FEATURE_1);
             if (!featureNodes1.isEmpty()) {
                 return true; // 找到特征1，确认是阅读页
             }
-            featureNodes2 = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.TARGET_FOR_READING_PAGE_FEATURE_2);
+            featureNodes2 = AccessibilityNodeUtils.findNodesByResourceID(rootNode,
+                    AccessibilityConfig.TARGET_FOR_READING_PAGE_FEATURE_2);
             return !featureNodes2.isEmpty(); // 找到特征2，确认是阅读页
         } finally {
             AccessibilityNodeUtils.recycleNodes(featureNodes1);
