@@ -100,11 +100,6 @@ public final class AccessibilityConfig {
      */
     public static final long GESTURE_CLICK_DURATION_MS = 20;
 
-    /**
-     * 自动阅读时，每次翻页的间隔时间（毫秒）。
-     */
-    public static final long AUTO_READING_SWIPE_DELAY_MS = 3500;
-
     // --- Ad Closing Logic ---
     /**
      * 广告中“反馈”按钮的文本。
