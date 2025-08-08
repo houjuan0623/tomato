@@ -30,16 +30,29 @@ public class AdProcessor implements ScreenProcessor {
         }
     }
 
+    /**
+     * // TODO:
+     * 包含四个步骤：
+     * 1、点击进入广告。
+     * 2、检测广告倒计时。
+     * 3、广告倒计时结束后，点击 x。
+     * 4、小说界面弹出恭喜获得免广告权益 30 分钟，点击知道了。
+     * 
+     * @param service  AccessibilityEventService 的实例，用于执行点击、访问 Handler 等。
+     * @param rootNode 窗口根节点。
+     * @return
+     */
     @Override
     public boolean process(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
-        List<AccessibilityNodeInfo> adButtons = AccessibilityNodeUtils.findNodesByResourceID(rootNode, AccessibilityConfig.AD_BUTTON_ID);
+        List<AccessibilityNodeInfo> adButtons = AccessibilityNodeUtils.findNodesByResourceID(rootNode,
+                AccessibilityConfig.AD_BUTTON_ID);
         if (adButtons.isEmpty()) {
             Log.w(AccessibilityConfig.TAG, "process: 未能找到广告关闭按钮，可能在 canProcess 之后界面已变化。");
             return false;
         }
         // 通常广告关闭按钮只有一个，我们点击第一个找到的
         AccessibilityNodeInfo adButton = adButtons.get(0);
-        try{
+        try {
             boolean clicked = AccessibilityActionUtils.performClick(service, adButton);
             if (clicked) {
                 Log.i(AccessibilityConfig.TAG, "成功发起对广告关闭按钮的点击。");
