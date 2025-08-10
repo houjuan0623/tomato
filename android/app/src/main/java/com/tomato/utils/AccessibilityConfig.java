@@ -113,7 +113,7 @@ public final class AccessibilityConfig {
     /**
      * 查找节点的最大重试次数。
      */
-    public static final int MAX_RETRY_ATTEMPTS = 2;
+    public static final int MAX_RETRY_ATTEMPTS = 5;
 
     /**
      * 每次重试的间隔时间（毫秒）。
