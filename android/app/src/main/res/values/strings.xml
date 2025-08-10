@@ -1,5 +1,5 @@
 <resources>
-    <string name="app_name">tomato</string>
-    <string name="accessibility_service_label">Tomato无障碍服务</string>
+    <string name="app_name">小工具</string>
+    <string name="accessibility_service_label">小工具</string>
     <string name="accessibility_service_description">此服务用于监听界面变化并执行指定操作，请放心开启。</string>
 </resources>

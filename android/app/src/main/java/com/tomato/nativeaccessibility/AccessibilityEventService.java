@@ -1,9 +1,13 @@
 package com.tomato.nativeaccessibility;
 
 import com.tomato.processor.AdProcessor;
+import com.tomato.processor.AfterSkipAdProcessor;
+import com.tomato.processor.EnterAdProcessor;
 import com.tomato.processor.MainPageProcessor;
 import com.tomato.processor.AddToHomePageProcessor;
 import com.tomato.processor.SearchNovelProcessor;
+import com.tomato.processor.ProductProcessor;
+import com.tomato.processor.RankProcessor;
 import com.tomato.processor.InputNovelNameProcessor;
 import com.tomato.processor.FindAndClickNovelProcessor;
 import com.tomato.processor.ReadingPageProcessor;
@@ -20,7 +24,6 @@ import android.view.accessibility.AccessibilityNodeInfo;
 import com.tomato.utils.ScreenProcessor;
 
 import com.tomato.utils.ActionStateManager;
-import com.tomato.utils.State;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -60,11 +63,17 @@ public class AccessibilityEventService extends AccessibilityService {
 
     private void initializeProcessors() {
         // 优先处理可能出现的广告和弹窗
+        screenProcessors.add(new EnterAdProcessor());
+        screenProcessors.add(new AfterSkipAdProcessor());
+        screenProcessors.add(new AdProcessor());
+        screenProcessors.add(new RankProcessor());
+        screenProcessors.add(new ProductProcessor());
         screenProcessors.add(new MainPageProcessor());
         screenProcessors.add(new AddToHomePageProcessor());
         screenProcessors.add(new InputNovelNameProcessor());
         screenProcessors.add(new SearchNovelProcessor());
         screenProcessors.add(new FindAndClickNovelProcessor());
+        // 处理小说界面的翻页一定要在处理广告的后面
         screenProcessors.add(new ReadingPageProcessor());
         // ... 如果有更多界面，继续添加 ...
     }
@@ -163,13 +172,15 @@ public class AccessibilityEventService extends AccessibilityService {
             return;
         }
 
-        boolean processedSuccessfully = false;
+        boolean processed = false;
+        boolean processorFound = false;
         // 遍历所有注册的处理器
         for (ScreenProcessor processor : screenProcessors) {
             if (processor.canProcess(this, rootNode)) {
+                processorFound = true;
                 Log.d(AccessibilityConfig.TAG, "找到处理器: " + processor.getClass().getSimpleName());
                 // 把处理任务交给它，并获取结果
-                processedSuccessfully = processor.process(this, rootNode);
+                processed = processor.process(this, rootNode);
                 // 找到并处理后，就跳出循环
                 break;
             }
@@ -178,9 +189,14 @@ public class AccessibilityEventService extends AccessibilityService {
         rootNode.recycle();
 
         // 根据处理结果决定下一步
-        if (!processedSuccessfully) {
-            // 如果没有找到处理器，或者处理器执行失败
-            Log.w(AccessibilityConfig.TAG, "当前屏幕无处理器或处理失败，计划重试。");
+        if (!processed) {
+            if (processorFound) {
+                // 处理器找到了，但 process() 返回 false
+                Log.w(AccessibilityConfig.TAG, "处理器执行失败，计划重试。");
+            } else {
+                // 遍历完所有处理器，没有一个 canProcess() 返回 true
+                Log.i(AccessibilityConfig.TAG, "当前屏幕无匹配的处理器，可能为过渡界面，计划重试。");
+            }
             scheduleNextAttempt(attempt + 1);
         }
     }
@@ -194,6 +210,7 @@ public class AccessibilityEventService extends AccessibilityService {
         mHandler.removeCallbacksAndMessages(null); // 取消所有挂起的重试任务
         // [重要] 同时重置翻页处理器的循环标志，以允许它在下次事件检查时可以被重新启动。
         ReadingPageProcessor.resetLoopFlag();
+        AdProcessor.resetTaskFlag();
     }
 
     /**

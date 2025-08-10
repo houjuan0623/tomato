@@ -17,18 +17,18 @@ import {
 import NativeAccessibility from './NativeAccessibility/NativeAccessibility';
 
 function App() {
-  const [moduleName, setModuleName] = useState<string>('');
+  // const [moduleName, setModuleName] = useState<string>('');
   const [inputText, setInputText] = useState<string>('');
 
-  useEffect(() => {
-    try {
-      const name = NativeAccessibility.getModuleName();
-      setModuleName(name);
-    } catch (e) {
-      console.error('调用 getModuleName 失败', e);
-      setModuleName('获取模块名失败');
-    }
-  }, []);
+  // useEffect(() => {
+  //   try {
+  //     const name = NativeAccessibility.getModuleName();
+  //     setModuleName(name);
+  //   } catch (e) {
+  //     console.error('调用 getModuleName 失败', e);
+  //     setModuleName('获取模块名失败');
+  //   }
+  // }, []);
 
   const handleSendTextToNative = () => {
     if (!inputText.trim()) {
@@ -59,8 +59,8 @@ function App() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>原生模块状态</Text>
-      <Text style={styles.moduleName}>模块名: {moduleName}</Text>
+      <Text style={styles.title}>工具：</Text>
+      {/* <Text style={styles.moduleName}>模块名: {moduleName}</Text> */}
       <TextInput
         style={styles.input}
         placeholder="请输入要搜索的内容..."

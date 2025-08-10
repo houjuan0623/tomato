@@ -77,6 +77,32 @@ public final class AccessibilityConfig {
      */
     public static final String AD_BUTTON_ID = "com.dragon.read:id/ind";
 
+    /**
+     * 跳过广告后，点击“知道了”，关闭 "恭喜获得免广告权益30分钟" 弹窗的按钮ID
+     */
+    public static final String AFTER_AD_CLOSE_BUTTON_ID = "com.dragon.read:id/cdu";
+
+    /**
+     * 通过这个classname找到广告面板的x
+     */
+    public static final String TARGET_IMAGE_CLASS = "com.lynx.tasm.ui.image.UIImage";
+
+    /**
+     * 评价界面的取消按钮对应的id
+     */
+    public static final String RANK_BUTTON_ID = "com.dragon.read:id/ll";
+
+    /**
+     * 商品界面弹出来的弹窗对应的resource id
+     */
+    public static final String PRODUCT_FEATURE_ID = "com.dragon.read:id/ecc";
+
+    /**
+     * 商品界面弹出来的弹窗右上角的 X 对应的resource id
+     */
+    public static final String PRODUCT_CLICK_ID = "com.dragon.read:id/ns";
+
+
     // --- Logging ---
     /**
      * 日志标签。

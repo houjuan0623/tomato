@@ -14,7 +14,6 @@ import java.util.List;
 import java.util.Random;
 
 /**
- * // TODO: 其他processor在执行process函数的时候，这里的不要再执行了，其他的process退出的时候，这里继续执行。
  * 处理器，用于处理小说阅读页面，主要负责自动向左滑动翻页。
  */
 public class ReadingPageProcessor implements ScreenProcessor {
@@ -24,7 +23,7 @@ public class ReadingPageProcessor implements ScreenProcessor {
     // 用于生成随机延迟
     private final Random random = new Random();
     // 随机延迟的选项 (毫秒)
-    private final int[] swipeDelays = { 2000, 3000, 3500, 4000 };
+    private final int[] swipeDelays = { 4000, 5000, 6000, 7000 };
 
     @Override
     public boolean canProcess(AccessibilityEventService service, AccessibilityNodeInfo rootNode) {
@@ -53,24 +52,27 @@ public class ReadingPageProcessor implements ScreenProcessor {
                     return; // 彻底退出循环
                 }
 
-                // 2. 检查当前是否仍在阅读页，如果不是，则跳过本次滑动，等待下个周期再检查
+                // 2. 检查当前是否仍在阅读页
                 AccessibilityNodeInfo currentRoot = service.getRootInActiveWindow();
                 if (currentRoot != null && isReadingPage(currentRoot)) {
                     Log.d(AccessibilityConfig.TAG, "翻页循环: 在阅读页，执行一次向左滑动。");
                     AccessibilityActionUtils.performGenericSwipeLeft(service);
                     currentRoot.recycle();
-                } else {
-                    // 不在阅读页（可能临时切换、弹窗等），不滑动也不停止循环，仅等待
-                    Log.d(AccessibilityConfig.TAG, "翻页循环: 当前不在阅读页，暂停滑动，等待下次检查。");
-                    if (currentRoot != null)
-                        currentRoot.recycle();
-                }
 
-                // 3. 无论本次是否滑动，都计划下一次检查
-                long randomDelay = swipeDelays[random.nextInt(swipeDelays.length)];
-                Log.d(AccessibilityConfig.TAG,
-                        "计划在 " + randomDelay + "ms 后进行下一次翻页。");
-                service.getHandler().postDelayed(this, randomDelay);
+                    // 3. 成功滑动后，计划下一次检查
+                    long randomDelay = swipeDelays[random.nextInt(swipeDelays.length)];
+                    Log.d(AccessibilityConfig.TAG,
+                            "计划在 " + randomDelay + "ms 后进行下一次翻页。");
+                    service.getHandler().postDelayed(this, randomDelay);
+                } else {
+                    // 不在阅读页（可能临时切换、弹窗等），停止循环
+                    Log.i(AccessibilityConfig.TAG, "翻页循环: 当前不在阅读页，停止循环。等待事件触发重启。");
+                    if (currentRoot != null) {
+                        currentRoot.recycle();
+                    }
+                    isLoopRunning = false; // 允许 canProcess() 在下次事件中再次返回 true
+                    // 不再 postDelayed，循环在此处终止
+                }
             }
         };
 
