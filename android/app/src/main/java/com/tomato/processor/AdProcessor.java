@@ -23,8 +23,10 @@ public class AdProcessor implements ScreenProcessor {
     private static final String TAG = AccessibilityConfig.TAG; // 使用统一的TAG方便日志查看
 
     // --- 广告页面的关键文本 ---
-    private static final String AD_MARKER_TEXT = "广告";
-    private static final String AD_SUCCESS_TEXT = "领取成功";
+    private static final String AD_MARKER_CONTENT_DESC = "广告";
+    private static final String AD_SUCCESS_CONTENT_DESC = "领取成功";
+    private static final String REWARD_CONTENT_DESC = "领取奖励";
+    private static final String EXIT_CONTENT_DESC = "坚持退出";
 
     private static volatile boolean isAdTaskRunning = false;
 
@@ -49,12 +51,27 @@ public class AdProcessor implements ScreenProcessor {
         }
 
         List<AccessibilityNodeInfo> adMarkers = null;
+        List<AccessibilityNodeInfo> rewardNodes = null;
+        List<AccessibilityNodeInfo> exitNodes = null;
         try {
             // 查找是否存在 "广告" 标志节点
-            adMarkers = AccessibilityNodeUtils.findNodesByText(rootNode, AD_MARKER_TEXT, true); // 使用完全匹配
-            return !adMarkers.isEmpty();
+            adMarkers = AccessibilityNodeUtils.findNodesByContentDescriptionContains(rootNode, AD_MARKER_CONTENT_DESC); // 使用完全匹配
+
+            // 如果存在 "领取奖励" 和 "坚持退出" 标志节点，说明当前在广告处理的 Middle 过程
+            // 使用 content-desc 查找“领取奖励”节点
+            rewardNodes = AccessibilityNodeUtils.findNodesByContentDescriptionContains(rootNode, REWARD_CONTENT_DESC);
+            // 使用 content-desc 查找“坚持退出”节点
+            exitNodes = AccessibilityNodeUtils.findNodesByContentDescriptionContains(rootNode, EXIT_CONTENT_DESC);
+
+            if (!rewardNodes.isEmpty() && !exitNodes.isEmpty()) {
+                return false;
+            } else {
+                return !adMarkers.isEmpty();
+            }
         } finally {
             AccessibilityNodeUtils.recycleNodes(adMarkers);
+            AccessibilityNodeUtils.recycleNodes(rewardNodes);
+            AccessibilityNodeUtils.recycleNodes(exitNodes);
         }
     }
 
@@ -127,15 +144,12 @@ public class AdProcessor implements ScreenProcessor {
 
         try {
             // 步骤 1: 查找 "领取成功" 的锚点节点
-            successNodes = AccessibilityNodeUtils.findNodesByTextContains(rootNode, AD_SUCCESS_TEXT);
-            if (successNodes != null && successNodes.size() > 1) {
+            successNodes = AccessibilityNodeUtils.findNodesByContentDescriptionContains(rootNode, AD_SUCCESS_CONTENT_DESC);
+            if (successNodes != null && !successNodes.isEmpty()) {
                 AccessibilityNodeInfo triggerNode = successNodes.get(0); // 获取触发状态的节点
-                Log.i(TAG, "AdProcessor: 检测到 '" + AD_SUCCESS_TEXT + "'! 准备基于索引查找关闭按钮。");
+                Log.i(TAG, "AdProcessor: 检测到 '" + AD_MARKER_CONTENT_DESC + "'! 准备基于索引查找关闭按钮。");
                 Log.i(TAG, "successNodes.get(0) 是：" + successNodes.get(0));
                 Log.i(TAG, "1111111111111111111111111111111111111111111successNodes.get(0).getClassName() 是：" + successNodes.get(0).getClassName());
-
-                Log.i(TAG, "successNodes.get(1) 是：" + successNodes.get(1));
-                Log.i(TAG, "1111111111111111111111111111111111111111111122222222222222222222222222222successNodes.get(1).getClassName() 是：" + successNodes.get(1).getClassName());
 
 
                 // 步骤 2: 基于锚点节点，查找下一个符合条件的兄弟节点

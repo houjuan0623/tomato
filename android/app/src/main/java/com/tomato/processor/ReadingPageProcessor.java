@@ -41,11 +41,17 @@ public class ReadingPageProcessor implements ScreenProcessor {
 
         isLoopRunning = true;
 
+        // --- 新增的常量，用于重试逻辑 ---
+        final int MAX_RETRIES = 3; // 最大连续重试次数
+        final long RETRY_INTERVAL_MS = 2000; // 每次重试的间隔时间（1.5秒）
+
         // 定义一个健壮的翻页任务
         Runnable swipeRunnable = new Runnable() {
+            private int failureCount = 0; // 失败计数器
+
             @Override
             public void run() {
-                // 1. 检查全局开关，这是停止循环的唯一方式
+                // 1. 检查全局开关，这是最优先的停止条件
                 if (!State.getInstance().isAutoReading()) {
                     Log.i(AccessibilityConfig.TAG, "自动阅读状态已关闭，永久停止翻页循环。");
                     isLoopRunning = false;
@@ -55,6 +61,14 @@ public class ReadingPageProcessor implements ScreenProcessor {
                 // 2. 检查当前是否仍在阅读页
                 AccessibilityNodeInfo currentRoot = service.getRootInActiveWindow();
                 if (currentRoot != null && isReadingPage(currentRoot)) {
+                    // 下面是成功识别到阅读页的逻辑
+
+                    // 成功了，必须重置失败计数器！
+                    if (failureCount > 0) {
+                        Log.i(AccessibilityConfig.TAG, "重试成功，已返回阅读页面。");
+                    }
+
+                    failureCount = 0; // 重置失败计数
                     Log.d(AccessibilityConfig.TAG, "翻页循环: 在阅读页，执行一次向左滑动。");
                     AccessibilityActionUtils.performGenericSwipeLeft(service);
                     currentRoot.recycle();
@@ -65,13 +79,20 @@ public class ReadingPageProcessor implements ScreenProcessor {
                             "计划在 " + randomDelay + "ms 后进行下一次翻页。");
                     service.getHandler().postDelayed(this, randomDelay);
                 } else {
-                    // 不在阅读页（可能临时切换、弹窗等），停止循环
-                    Log.i(AccessibilityConfig.TAG, "翻页循环: 当前不在阅读页，停止循环。等待事件触发重启。");
+                    // 不在阅读页（可能临时切换、弹窗等）
+                    failureCount++;
+                    Log.w(AccessibilityConfig.TAG, "翻页循环: 未在阅读页，尝试次数: " + failureCount);
                     if (currentRoot != null) {
                         currentRoot.recycle();
                     }
-                    isLoopRunning = false; // 允许 canProcess() 在下次事件中再次返回 true
-                    // 不再 postDelayed，循环在此处终止
+                    if (failureCount < MAX_RETRIES) { // 最多重试3次
+                        // 等待一个很短的时间（比如2秒）再试几次，给弹窗消失的时间
+                        service.getHandler().postDelayed(this, RETRY_INTERVAL_MS);
+                    } else {
+                        // 已达到最大重试次数，确认已离开阅读页，彻底停止循环
+                        Log.e(AccessibilityConfig.TAG, "已连续重试 " + MAX_RETRIES + " 次仍未返回阅读页，停止翻页循环。");
+                        isLoopRunning = false;
+                    }
                 }
             }
         };

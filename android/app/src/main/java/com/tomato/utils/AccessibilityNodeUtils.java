@@ -22,80 +22,50 @@ public class AccessibilityNodeUtils {
     }
 
     /**
-     * 【推荐】通过文本内容查找节点（包含匹配）。
-     * 这是对系统API的直接封装，效率和安全性最高。
+     * 【已修改】通过内容描述（content-desc）查找节点（包含匹配）。
+     * 由于系统没有只查找 content-desc 的原生 API，此方法通过递归手动实现。
      *
-     * @param rootNode 起始节点
-     * @param text     要查找的文本
-     * @return 包含该文本的节点列表
+     * @param rootNode    起始节点
+     * @param contentDesc 要查找的内容描述文本
+     * @return 包含该内容描述的节点列表
      */
-    public static List<AccessibilityNodeInfo> findNodesByTextContains(AccessibilityNodeInfo rootNode, String text) {
-        if (rootNode == null || text == null) {
-            return new ArrayList<>(); // 返回空列表，避免 NullPointerException
+    public static List<AccessibilityNodeInfo> findNodesByContentDescriptionContains(AccessibilityNodeInfo rootNode, String contentDesc) {
+        List<AccessibilityNodeInfo> foundNodes = new ArrayList<>();
+        if (rootNode == null || contentDesc == null) {
+            return foundNodes; // 返回空列表，避免 NullPointerException
         }
-        return rootNode.findAccessibilityNodeInfosByText(text);
+        // 调用递归辅助函数开始查找
+        findNodesByContentDescriptionRecursive(rootNode, contentDesc, foundNodes);
+        return foundNodes;
     }
 
     /**
-     * 【推荐】通过文本内容查找节点（精确匹配）。
-     * 基于系统API进行过滤，兼具安全性和准确性。
+     * 用于递归查找的私有辅助方法。
      *
-     * @param rootNode  起始节点
-     * @param text      要查找的文本
-     * @param exactMatch 是否要求完全一样
-     * @return 符合条件的节点列表
+     * @param currentNode 当前正在检查的节点
+     * @param contentDesc 要查找的内容描述
+     * @param foundNodes  用于存放结果的列表
      */
-    public static List<AccessibilityNodeInfo> findNodesByText(AccessibilityNodeInfo rootNode, String text, boolean exactMatch) {
-        if (rootNode == null || text == null) {
-            return new ArrayList<>();
+    private static void findNodesByContentDescriptionRecursive(AccessibilityNodeInfo currentNode, String contentDesc, List<AccessibilityNodeInfo> foundNodes) {
+        if (currentNode == null) {
+            return;
         }
 
-        // 如果不是精确匹配，直接调用上面的 contains 方法
-        if (!exactMatch) {
-            return findNodesByTextContains(rootNode, text);
+        // 1. 检查当前节点
+        CharSequence currentContentDesc = currentNode.getContentDescription();
+        if (currentContentDesc != null && currentContentDesc.toString().contains(contentDesc)) {
+            // 找到了！添加一个节点的副本到列表中
+            foundNodes.add(AccessibilityNodeInfo.obtain(currentNode));
         }
 
-        // 如果是精确匹配，先用包含匹配找出候选节点，再进行过滤
-        List<AccessibilityNodeInfo> candidates = rootNode.findAccessibilityNodeInfosByText(text);
-        List<AccessibilityNodeInfo> exactMatches = new ArrayList<>();
-
-        for (AccessibilityNodeInfo node : candidates) {
-            boolean isMatch = false;
-            // 目前的观察text和contentDescription储存的内容都是一样的
-            // text：在屏幕上直接显示给用户看的文字。
-            // contentDescription：为没有可见文字的控件提供一个无障碍描述，或者覆盖掉已有的 text 内容。
-            // 检查节点的 text 属性
-            CharSequence nodeText = node.getText();
-            if (nodeText != null && text.equals(nodeText.toString())) {
-                isMatch = true;
-            }
-
-            // 只有当 getText() 不匹配时，才检查 getContentDescription()
-            if (!isMatch) {
-                CharSequence nodeDesc = node.getContentDescription();
-                if (nodeDesc != null && text.equals(nodeDesc.toString())) {
-                    isMatch = true;
-                }
-            }
-
-            // 决定节点的“命运”
-            if (isMatch) {
-                // 是精确匹配！
-                // 将它加入返回列表，把“所有权”转交给上级调用者。
-                // **绝对不能在这里回收它！**
-                exactMatches.add(node);
-            } else {
-                // 不是精确匹配。
-                // 我们是它最后的所有者，并且不再需要它了。
-                // **必须立即回收它，防止内存泄漏。**
-                node.recycle();
+        // 2. 递归遍历所有子节点
+        for (int i = 0; i < currentNode.getChildCount(); i++) {
+            AccessibilityNodeInfo childNode = currentNode.getChild(i);
+            if (childNode != null) {
+                findNodesByContentDescriptionRecursive(childNode, contentDesc, foundNodes);
+                // 注意：这里不需要 recycle() childNode，因为它的所有权仍在父节点中
             }
         }
-
-        // 循环结束后，所有 candidates 里的节点，要么进入了 exactMatches 列表，要么被回收了。
-        // candidates 列表本身会被垃圾回收，我们已经处理完了所有它包含的节点。
-
-        return exactMatches;
     }
 
     /**

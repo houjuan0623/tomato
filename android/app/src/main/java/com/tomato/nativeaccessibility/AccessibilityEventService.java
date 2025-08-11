@@ -4,6 +4,7 @@ import com.tomato.processor.AdProcessor;
 import com.tomato.processor.AfterSkipAdProcessor;
 import com.tomato.processor.EnterAdProcessor;
 import com.tomato.processor.MainPageProcessor;
+import com.tomato.processor.Middle1InAdProcessor;
 import com.tomato.processor.AddToHomePageProcessor;
 import com.tomato.processor.SearchNovelProcessor;
 import com.tomato.processor.ProductProcessor;
@@ -66,6 +67,7 @@ public class AccessibilityEventService extends AccessibilityService {
         screenProcessors.add(new EnterAdProcessor());
         screenProcessors.add(new AfterSkipAdProcessor());
         screenProcessors.add(new AdProcessor());
+        screenProcessors.add(new Middle1InAdProcessor());
         screenProcessors.add(new RankProcessor());
         screenProcessors.add(new ProductProcessor());
         screenProcessors.add(new MainPageProcessor());
